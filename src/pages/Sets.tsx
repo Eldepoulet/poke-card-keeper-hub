@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import CardSet from '@/components/CardSet';
 import AuthModal from '@/components/AuthModal';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -16,6 +16,7 @@ import { Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { CardSetWithCollectionStats } from '@/types/database';
 import { useQuery } from '@tanstack/react-query';
+import { seedDatabase } from '@/utils/seedDatabase';
 
 const Sets = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -23,6 +24,7 @@ const Sets = () => {
   const [username, setUsername] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
+  const [isSeeding, setIsSeeding] = useState(false);
   const navigate = useNavigate();
 
   // Check auth state
@@ -46,8 +48,29 @@ const Sets = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Attempt to seed database on component mount
+  useEffect(() => {
+    const attemptSeed = async () => {
+      setIsSeeding(true);
+      try {
+        const success = await seedDatabase();
+        if (success) {
+          toast.success('Sample card data has been loaded!');
+          // Refetch card sets after seeding
+          refetch();
+        }
+      } catch (error) {
+        console.error('Failed to seed database:', error);
+      } finally {
+        setIsSeeding(false);
+      }
+    };
+    
+    attemptSeed();
+  }, []);
+
   // Fetch card sets with collection stats
-  const { data: cardSets = [], isLoading, error } = useQuery({
+  const { data: cardSets = [], isLoading, error, refetch } = useQuery({
     queryKey: ['cardSets'],
     queryFn: async () => {
       const { data: sets, error: setsError } = await supabase
@@ -169,9 +192,11 @@ const Sets = () => {
           </div>
         </div>
 
-        {isLoading ? (
+        {isLoading || isSeeding ? (
           <div className="text-center py-12">
-            <p className="text-xl text-gray-500">Loading card sets...</p>
+            <p className="text-xl text-gray-500">
+              {isSeeding ? 'Loading card data into database...' : 'Loading card sets...'}
+            </p>
           </div>
         ) : error ? (
           <div className="text-center py-12">

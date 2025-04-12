@@ -5,14 +5,19 @@ import { cardSets } from '@/data/mockData';
 export const seedDatabase = async () => {
   try {
     // Check if card sets already exist
-    const { data: existingSets } = await supabase
+    const { data: existingSets, error: checkError } = await supabase
       .from('card_sets')
       .select('id')
       .limit(1);
 
+    if (checkError) {
+      console.error('Error checking existing sets:', checkError);
+      return false;
+    }
+
     if (existingSets && existingSets.length > 0) {
       console.log('Database already has card sets, skipping seeding.');
-      return;
+      return false;
     }
 
     console.log('Seeding database with sample data...');
@@ -32,14 +37,22 @@ export const seedDatabase = async () => {
       .insert(formattedSets);
 
     if (setsError) {
-      throw new Error(`Error inserting card sets: ${setsError.message}`);
+      console.error(`Error inserting card sets:`, setsError);
+      return false;
     }
+
+    console.log('Successfully inserted card sets, now adding cards...');
 
     // For each set, insert its cards
     for (const set of cardSets) {
       // Get cards for this set from mock data
       const { getCardsForSet } = await import('@/data/mockData');
       const mockCards = getCardsForSet(set.id);
+      
+      if (!mockCards || mockCards.length === 0) {
+        console.log(`No cards found for set ${set.id}, skipping`);
+        continue;
+      }
       
       const formattedCards = mockCards.map(card => ({
         id: card.id,
@@ -54,13 +67,21 @@ export const seedDatabase = async () => {
         hp: card.hp || null
       }));
 
-      const { error: cardsError } = await supabase
-        .from('cards')
-        .insert(formattedCards);
+      // Insert in smaller batches to avoid payload size issues
+      const batchSize = 50;
+      for (let i = 0; i < formattedCards.length; i += batchSize) {
+        const batch = formattedCards.slice(i, i + batchSize);
+        const { error: cardsError } = await supabase
+          .from('cards')
+          .insert(batch);
 
-      if (cardsError) {
-        throw new Error(`Error inserting cards for set ${set.id}: ${cardsError.message}`);
+        if (cardsError) {
+          console.error(`Error inserting cards batch for set ${set.id}:`, cardsError);
+          // Continue to next batch even if there's an error
+        }
       }
+
+      console.log(`Added cards for set: ${set.name}`);
     }
 
     console.log('Database seeded successfully!');
