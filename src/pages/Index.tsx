@@ -1,17 +1,49 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import AuthModal from '@/components/AuthModal';
 import CardSet from '@/components/CardSet';
 import { Button } from '@/components/ui/button';
-import { cardSets } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { ArrowRight, Search } from 'lucide-react';
+import { toast } from 'sonner';
+import { seedDatabase } from '@/utils/seedDatabase';
+import { CardSetWithCollectionStats } from '@/types/database';
+import { useQuery } from '@tanstack/react-query';
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [username, setUsername] = useState('');
+
+  // Check auth state
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setIsLoggedIn(!!session);
+        if (session?.user) {
+          setUsername(session.user.email || '');
+        }
+      }
+    );
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+      if (session?.user) {
+        setUsername(session.user.email || '');
+      }
+    });
+
+    // Attempt to seed the database when the app starts
+    seedDatabase().then(seeded => {
+      if (seeded) {
+        toast.success('Sample card data has been loaded!');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleLogin = (username: string) => {
     setIsLoggedIn(true);
@@ -19,21 +51,53 @@ const Index = () => {
     setShowAuthModal(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
     setUsername('');
   };
 
-  // Convert mock data to match our database schema
-  const featuredSets = cardSets.slice(0, 3).map(set => ({
-    id: set.id,
-    name: set.name,
-    release_date: set.releaseDate,
-    total_cards: set.totalCards,
-    collectedCards: set.collectedCards,
-    image_url: set.imageUrl,
-    description: ""
-  }));
+  // Fetch featured card sets
+  const { data: featuredSets = [], isLoading } = useQuery({
+    queryKey: ['featuredSets'],
+    queryFn: async () => {
+      const { data: sets, error } = await supabase
+        .from('card_sets')
+        .select('*')
+        .limit(3);
+      
+      if (error) throw error;
+      
+      if (isLoggedIn) {
+        // If user is logged in, get their collection stats for each set
+        const { data: collections } = await supabase
+          .from('user_collections')
+          .select('card_id');
+        
+        const collectedCardIds = new Set(collections?.map(c => c.card_id) || []);
+        
+        const { data: cards } = await supabase
+          .from('cards')
+          .select('id, set_id');
+        
+        return sets.map(set => {
+          const setCards = cards.filter(card => card.set_id === set.id);
+          const collectedCards = setCards.filter(card => collectedCardIds.has(card.id)).length;
+          
+          return {
+            ...set,
+            collectedCards,
+          } as CardSetWithCollectionStats;
+        });
+      } else {
+        // If not logged in, set collected cards to 0
+        return sets.map(set => ({
+          ...set,
+          collectedCards: 0,
+        })) as CardSetWithCollectionStats[];
+      }
+    },
+  });
 
   return (
     <>
@@ -77,7 +141,7 @@ const Index = () => {
           </div>
         </section>
 
-        {isLoggedIn && (
+        {isLoggedIn && !isLoading && featuredSets.length > 0 && (
           <section className="mb-12">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">My Collection Overview</h2>
@@ -103,14 +167,24 @@ const Index = () => {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">Featured Sets</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredSets.map(set => (
-              <CardSet 
-                key={set.id}
-                {...set}
-              />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <p className="text-lg text-gray-500">Loading featured sets...</p>
+            </div>
+          ) : featuredSets.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredSets.map(set => (
+                <CardSet 
+                  key={set.id}
+                  {...set}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-lg text-gray-500">No card sets found. Please try again later.</p>
+            </div>
+          )}
         </section>
 
         <section className="bg-gray-100 p-8 rounded-lg">

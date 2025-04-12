@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 type AuthModalProps = {
   isOpen: boolean;
@@ -20,15 +21,16 @@ type AuthModalProps = {
 };
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegister, setIsRegister] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!username.trim()) {
-      toast.error('Please enter a username');
+    if (!email.trim()) {
+      toast.error('Please enter an email address');
       return;
     }
     
@@ -37,19 +39,42 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
       return;
     }
 
-    // For demo purposes, we're just doing a simple login
-    // In a real app, this would connect to a backend
-    if (isRegister) {
-      toast.success(`Account created for ${username}!`);
-    } else {
-      toast.success(`Welcome back, ${username}!`);
-    }
+    setIsLoading(true);
     
-    onLogin(username);
-    // Reset form
-    setUsername('');
-    setPassword('');
-    setIsRegister(false);
+    try {
+      if (isRegister) {
+        // Sign up
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        
+        toast.success('Account created! Check your email for verification.');
+        if (data.user) {
+          onLogin(data.user.email || '');
+        }
+      } else {
+        // Sign in
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        
+        toast.success(`Welcome back!`);
+        if (data.user) {
+          onLogin(data.user.email || '');
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Authentication failed');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -66,15 +91,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="username" className="text-right">
-                Username
+              <Label htmlFor="email" className="text-right">
+                Email
               </Label>
               <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="col-span-3"
-                placeholder="Enter your username"
+                placeholder="Enter your email"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -97,14 +123,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
               variant="outline" 
               className="w-full sm:w-auto"
               onClick={() => setIsRegister(!isRegister)}
+              disabled={isLoading}
             >
               {isRegister ? 'Already have an account?' : 'Need an account?'}
             </Button>
             <Button 
               type="submit" 
               className="w-full sm:w-auto bg-pokemon-red hover:bg-pokemon-red/90"
+              disabled={isLoading}
             >
-              {isRegister ? 'Sign Up' : 'Sign In'}
+              {isLoading ? 'Processing...' : isRegister ? 'Sign Up' : 'Sign In'}
             </Button>
           </DialogFooter>
         </form>

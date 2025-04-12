@@ -14,14 +14,16 @@ import {
   SelectTrigger, 
   SelectValue
 } from '@/components/ui/select';
-import { getCardsForSet, getSetDetails } from '@/data/mockData';
-import { ArrowLeft, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { supabase } from '@/integrations/supabase/client';
+import { CardWithCollectionStatus, CardSet } from '@/types/database';
+import { useQuery } from '@tanstack/react-query';
 
 const SetDetails = () => {
   const { setId } = useParams<{ setId: string }>();
@@ -35,12 +37,81 @@ const SetDetails = () => {
 
   if (!setId) return <div>Set ID is required</div>;
 
-  const setDetails = getSetDetails(setId);
-  const cards = getCardsForSet(setId);
+  // Check auth state
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setIsLoggedIn(!!session);
+        if (session?.user) {
+          setUsername(session.user.email || '');
+        }
+      }
+    );
 
-  if (!setDetails) return <div>Set not found</div>;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+      if (session?.user) {
+        setUsername(session.user.email || '');
+      }
+    });
 
-  const collectionProgress = Math.round((setDetails.collectedCards / setDetails.totalCards) * 100);
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch set details and cards
+  const { data: setDetails, isLoading: isLoadingSetDetails } = useQuery({
+    queryKey: ['setDetails', setId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('card_sets')
+        .select('*')
+        .eq('id', setId)
+        .single();
+      
+      if (error) throw error;
+      
+      return data as CardSet;
+    }
+  });
+
+  const { data: cards = [], isLoading: isLoadingCards } = useQuery({
+    queryKey: ['setCards', setId, isLoggedIn],
+    queryFn: async () => {
+      const { data: cards, error } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('set_id', setId);
+      
+      if (error) throw error;
+      
+      // If user is logged in, get their collection info
+      if (isLoggedIn) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: collections } = await supabase
+            .from('user_collections')
+            .select('card_id')
+            .eq('user_id', session.user.id);
+          
+          const collectedCardIds = new Set(collections?.map(c => c.card_id) || []);
+          
+          return cards.map(card => ({
+            ...card,
+            owned: collectedCardIds.has(card.id)
+          })) as CardWithCollectionStatus[];
+        }
+      }
+      
+      // If not logged in, set owned to false for all cards
+      return cards.map(card => ({
+        ...card,
+        owned: false
+      })) as CardWithCollectionStatus[];
+    },
+    enabled: !!setId
+  });
+
+  const isLoading = isLoadingSetDetails || isLoadingCards;
 
   const handleLogin = (username: string) => {
     setIsLoggedIn(true);
@@ -48,7 +119,8 @@ const SetDetails = () => {
     setShowAuthModal(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
     setUsername('');
   };
@@ -94,21 +166,33 @@ const SetDetails = () => {
     return 0;
   });
 
-  // Convert cards to match the schema
-  const formattedCards = sortedCards.map(card => ({
-    id: card.id,
-    name: card.name,
-    number: card.number,
-    image_url: card.imageUrl,
-    rarity: card.rarity,
-    type: card.type,
-    owned: card.owned,
-    setId,
-    description: null,
-    attacks: null,
-    hp: null,
-    set_id: setId
-  }));
+  // Calculate collection progress
+  const collectedCards = isLoggedIn ? cards.filter(card => card.owned).length : 0;
+  const totalCards = cards.length;
+  const collectionProgress = totalCards > 0 ? Math.round((collectedCards / totalCards) * 100) : 0;
+
+  if (isLoading) {
+    return (
+      <Layout isLoggedIn={isLoggedIn} onLogin={() => setShowAuthModal(true)} onLogout={handleLogout}>
+        <div className="text-center py-16">
+          <p className="text-lg text-gray-500">Loading set details...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!setDetails) {
+    return (
+      <Layout isLoggedIn={isLoggedIn} onLogin={() => setShowAuthModal(true)} onLogout={handleLogout}>
+        <div className="text-center py-16">
+          <p className="text-lg text-red-500">Set not found</p>
+          <Link to="/sets" className="inline-block mt-4">
+            <Button variant="outline">Back to Sets</Button>
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <>
@@ -123,24 +207,26 @@ const SetDetails = () => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
           <div className="aspect-video relative">
             <img 
-              src={setDetails.imageUrl} 
+              src={setDetails.image_url} 
               alt={setDetails.name} 
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
               <div className="p-6 text-white">
                 <h1 className="text-3xl font-bold mb-1">{setDetails.name}</h1>
-                <p>Released: {setDetails.releaseDate}</p>
+                <p>Released: {setDetails.release_date}</p>
               </div>
             </div>
           </div>
           <div className="p-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
               <div className="flex-grow max-w-2xl">
-                <p className="text-gray-700 mb-3">{setDetails.description}</p>
+                {setDetails.description && (
+                  <p className="text-gray-700 mb-3">{setDetails.description}</p>
+                )}
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-700">
-                    Collection Progress: {setDetails.collectedCards} / {setDetails.totalCards} cards
+                    Collection Progress: {collectedCards} / {totalCards} cards
                   </span>
                   <span className="text-sm font-medium text-gray-700">
                     {collectionProgress}%
@@ -226,9 +312,9 @@ const SetDetails = () => {
           </div>
         </div>
 
-        {formattedCards.length > 0 ? (
+        {sortedCards.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {formattedCards.map(card => (
+            {sortedCards.map(card => (
               <PokemonCard
                 key={card.id}
                 {...card}

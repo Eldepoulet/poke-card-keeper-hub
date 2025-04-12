@@ -1,21 +1,12 @@
 
 import React, { useState } from 'react';
-import { Check, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger 
-} from '@/components/ui/tooltip';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
 import { CardWithCollectionStatus } from '@/types/database';
+import { Check, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-type PokemonCardProps = CardWithCollectionStatus & {
-  setId: string;
-};
+type PokemonCardProps = CardWithCollectionStatus;
 
 const PokemonCard: React.FC<PokemonCardProps> = ({ 
   id, 
@@ -23,122 +14,107 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
   number, 
   image_url, 
   rarity, 
-  owned, 
-  setId,
-  type 
+  owned = false,
+  set_id 
 }) => {
-  const [isOwned, setIsOwned] = useState(owned);
+  const [isCollected, setIsCollected] = useState(owned);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleToggleOwned = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const { data: session } = await supabase.auth.getSession();
-    
-    if (!session?.session) {
-      toast.error("Please log in to track your collection");
+  const getCardColorClass = () => {
+    switch(rarity.toLowerCase()) {
+      case 'common': return 'border-gray-300';
+      case 'uncommon': return 'border-green-400';
+      case 'rare': return 'border-blue-400';
+      case 'ultra rare': return 'border-purple-400';
+      case 'secret rare': return 'border-yellow-400';
+      default: return 'border-gray-300';
+    }
+  };
+
+  const toggleCollection = async () => {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error('Please sign in to collect cards');
       return;
     }
+
+    setIsUpdating(true);
     
     try {
-      if (!isOwned) {
-        // Add card to collection
-        const { error } = await supabase
-          .from('user_collections')
-          .insert({
-            user_id: session.session.user.id,
-            card_id: id
-          });
-          
-        if (error) throw error;
-        setIsOwned(true);
-        toast.success(`Added ${name} to your collection!`);
-      } else {
+      if (isCollected) {
         // Remove card from collection
         const { error } = await supabase
           .from('user_collections')
           .delete()
           .eq('card_id', id)
-          .eq('user_id', session.session.user.id);
+          .eq('user_id', session.user.id);
           
         if (error) throw error;
-        setIsOwned(false);
-        toast.info(`Removed ${name} from your collection`);
+        toast.success(`${name} removed from your collection`);
+      } else {
+        // Add card to collection
+        const { error } = await supabase
+          .from('user_collections')
+          .insert({
+            card_id: id,
+            user_id: session.user.id,
+            collected_at: new Date().toISOString()
+          });
+          
+        if (error) throw error;
+        toast.success(`${name} added to your collection`);
       }
-    } catch (error) {
-      console.error('Error updating collection:', error);
-      toast.error('Failed to update collection');
-    }
-  };
-
-  // Determine rarity color
-  const rarityColor = () => {
-    switch(rarity.toLowerCase()) {
-      case 'common': return 'bg-gray-200 text-gray-700';
-      case 'uncommon': return 'bg-green-200 text-green-700';
-      case 'rare': return 'bg-blue-200 text-blue-700';
-      case 'ultra rare': return 'bg-purple-200 text-purple-700';
-      case 'secret rare': return 'bg-yellow-200 text-yellow-700';
-      default: return 'bg-gray-200 text-gray-700';
-    }
-  };
-
-  // Determine type color
-  const typeColor = () => {
-    switch(type.toLowerCase()) {
-      case 'fire': return 'bg-pokemon-red text-white';
-      case 'water': return 'bg-pokemon-blue text-white';
-      case 'grass': return 'bg-pokemon-lightBlue text-white';
-      case 'electric': return 'bg-pokemon-yellow text-gray-800';
-      case 'psychic': return 'bg-pokemon-purple text-white';
-      default: return 'bg-gray-500 text-white';
+      setIsCollected(!isCollected);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update collection');
+      console.error(error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
   return (
-    <div className="pokemon-card group relative">
-      <Link to={`/sets/${setId}/card/${id}`}>
-        <div className="relative aspect-[2.5/3.5] overflow-hidden">
+    <div className={`pokemon-card relative rounded-lg overflow-hidden border-2 ${getCardColorClass()} transition-all duration-300 hover:shadow-lg`}>
+      <Link to={`/sets/${set_id}/card/${id}`} className="block">
+        <div className="aspect-[2/3] bg-gray-100">
           <img 
             src={image_url} 
             alt={name} 
-            className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+            className="w-full h-full object-cover"
+            loading="lazy"
           />
-          <div className="absolute top-2 left-2 flex gap-1">
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${rarityColor()}`}>
-              {rarity}
-            </span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor()}`}>
-              {type}
-            </span>
-          </div>
-          <div className="absolute top-2 right-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={handleToggleOwned}
-                    className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                      isOwned 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-white text-gray-400 border border-gray-300'
-                    }`}
-                  >
-                    {isOwned ? <Check size={14} /> : <Plus size={14} />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isOwned ? 'Remove from collection' : 'Add to collection'}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
         </div>
-        <div className="p-3">
-          <p className="font-medium text-gray-700 truncate">{name}</p>
-          <p className="text-sm text-gray-500">#{number}</p>
+        <div className="p-2 bg-white">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs text-gray-500">#{number}</span>
+            <span className="text-xs font-medium text-gray-700 capitalize">{rarity}</span>
+          </div>
+          <h3 className="font-medium text-sm truncate" title={name}>{name}</h3>
         </div>
       </Link>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isUpdating) toggleCollection();
+        }}
+        disabled={isUpdating}
+        className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors ${
+          isCollected 
+            ? 'bg-green-500 hover:bg-green-600' 
+            : 'bg-pokemon-red hover:bg-pokemon-red/90'
+        }`}
+        title={isCollected ? 'Remove from collection' : 'Add to collection'}
+      >
+        {isUpdating ? (
+          <span className="block w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"></span>
+        ) : isCollected ? (
+          <Check size={16} />
+        ) : (
+          <Plus size={16} />
+        )}
+      </button>
     </div>
   );
 };
