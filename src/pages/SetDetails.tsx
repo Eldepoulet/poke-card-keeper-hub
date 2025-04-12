@@ -14,7 +14,7 @@ import {
   SelectTrigger, 
   SelectValue
 } from '@/components/ui/select';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, RefreshCw } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
@@ -24,6 +24,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { CardWithCollectionStatus, CardSet } from '@/types/database';
 import { useQuery } from '@tanstack/react-query';
+import { seedDatabase } from '@/utils/seedDatabase';
+import { toast } from 'sonner';
 
 const SetDetails = () => {
   const { setId } = useParams<{ setId: string }>();
@@ -34,6 +36,7 @@ const SetDetails = () => {
   const [filterValue, setFilterValue] = useState('all');
   const [sortOrder, setSortOrder] = useState('number-asc');
   const [activeTab, setActiveTab] = useState('all');
+  const [isSeeding, setIsSeeding] = useState(false);
 
   if (!setId) return <div>Set ID is required</div>;
 
@@ -74,7 +77,7 @@ const SetDetails = () => {
     }
   });
 
-  const { data: cards = [], isLoading: isLoadingCards } = useQuery({
+  const { data: cards = [], isLoading: isLoadingCards, refetch: refetchCards } = useQuery({
     queryKey: ['setCards', setId, isLoggedIn],
     queryFn: async () => {
       const { data: cards, error } = await supabase
@@ -123,6 +126,24 @@ const SetDetails = () => {
     await supabase.auth.signOut();
     setIsLoggedIn(false);
     setUsername('');
+  };
+
+  const handleForceRefresh = async () => {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser et recharger les données de ce set? Cela peut prendre quelques instants.')) {
+      setIsSeeding(true);
+      try {
+        // Force seed for this specific set
+        await seedDatabase(false); // Don't reset everything, just ensure the set is loaded
+        
+        toast.success('Données du set rechargées avec succès!');
+        refetchCards();
+      } catch (error) {
+        console.error('Failed to reload set data:', error);
+        toast.error('Une erreur est survenue lors du rechargement des données.');
+      } finally {
+        setIsSeeding(false);
+      }
+    }
   };
 
   // Filter cards based on search, filter, and tab
@@ -244,6 +265,16 @@ const SetDetails = () => {
                   }
                 />
               </div>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleForceRefresh} 
+                disabled={isSeeding}
+                title="Recharger les données du set"
+                className="flex-shrink-0"
+              >
+                <RefreshCw size={18} className={isSeeding ? "animate-spin" : ""} />
+              </Button>
             </div>
           </div>
         </div>
@@ -312,7 +343,20 @@ const SetDetails = () => {
           </div>
         </div>
 
-        {sortedCards.length > 0 ? (
+        {cards.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-xl text-amber-600 mb-4">Aucune carte trouvée pour ce set</p>
+            <p className="text-gray-500 mb-6">Cliquez sur le bouton de rechargement pour essayer de charger les cartes de ce set.</p>
+            <Button 
+              onClick={handleForceRefresh} 
+              disabled={isSeeding}
+              className="mx-auto"
+            >
+              {isSeeding ? "Chargement..." : "Recharger les cartes"}
+              <RefreshCw size={18} className={`ml-2 ${isSeeding ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        ) : sortedCards.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {sortedCards.map(card => (
               <PokemonCard
