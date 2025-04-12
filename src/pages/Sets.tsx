@@ -1,10 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import CardSet from '@/components/CardSet';
 import AuthModal from '@/components/AuthModal';
-import { cardSets } from '@/data/mockData';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -14,6 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { CardSetWithCollectionStats } from '@/types/database';
+import { useQuery } from '@tanstack/react-query';
 
 const Sets = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -23,13 +25,80 @@ const Sets = () => {
   const [sortOrder, setSortOrder] = useState('newest');
   const navigate = useNavigate();
 
+  // Check auth state
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setIsLoggedIn(!!session);
+        if (session?.user) {
+          setUsername(session.user.email || '');
+        }
+      }
+    );
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+      if (session?.user) {
+        setUsername(session.user.email || '');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch card sets with collection stats
+  const { data: cardSets = [], isLoading, error } = useQuery({
+    queryKey: ['cardSets'],
+    queryFn: async () => {
+      const { data: sets, error: setsError } = await supabase
+        .from('card_sets')
+        .select('*');
+      
+      if (setsError) throw setsError;
+      
+      // If user is logged in, get their collection stats for each set
+      if (isLoggedIn) {
+        const { data: collections, error: collectionsError } = await supabase
+          .from('user_collections')
+          .select('card_id');
+        
+        if (collectionsError) throw collectionsError;
+        
+        const collectedCardIds = new Set(collections?.map(c => c.card_id) || []);
+        
+        const { data: cards, error: cardsError } = await supabase
+          .from('cards')
+          .select('id, set_id');
+        
+        if (cardsError) throw cardsError;
+        
+        return sets.map(set => {
+          const setCards = cards.filter(card => card.set_id === set.id);
+          const collectedCards = setCards.filter(card => collectedCardIds.has(card.id)).length;
+          
+          return {
+            ...set,
+            collectedCards,
+          } as CardSetWithCollectionStats;
+        });
+      } else {
+        // If not logged in, set collected cards to 0
+        return sets.map(set => ({
+          ...set,
+          collectedCards: 0,
+        })) as CardSetWithCollectionStats[];
+      }
+    },
+  });
+
   const handleLogin = (username: string) => {
     setIsLoggedIn(true);
     setUsername(username);
     setShowAuthModal(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
     setUsername('');
   };
@@ -41,8 +110,8 @@ const Sets = () => {
 
   // Sort sets based on sort order
   const sortedSets = [...filteredSets].sort((a, b) => {
-    const dateA = new Date(a.releaseDate);
-    const dateB = new Date(b.releaseDate);
+    const dateA = new Date(a.release_date);
+    const dateB = new Date(b.release_date);
     
     if (sortOrder === 'newest') {
       return dateB.getTime() - dateA.getTime();
@@ -53,9 +122,9 @@ const Sets = () => {
     } else if (sortOrder === 'name-desc') {
       return b.name.localeCompare(a.name);
     } else if (sortOrder === 'completion-high') {
-      return (b.collectedCards / b.totalCards) - (a.collectedCards / a.totalCards);
+      return (b.collectedCards / b.total_cards) - (a.collectedCards / a.total_cards);
     } else if (sortOrder === 'completion-low') {
-      return (a.collectedCards / a.totalCards) - (b.collectedCards / b.totalCards);
+      return (a.collectedCards / a.total_cards) - (b.collectedCards / a.total_cards);
     }
     return 0;
   });
@@ -100,17 +169,20 @@ const Sets = () => {
           </div>
         </div>
 
-        {sortedSets.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <p className="text-xl text-gray-500">Loading card sets...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-xl text-red-500">Error loading card sets. Please try again.</p>
+          </div>
+        ) : sortedSets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedSets.map(set => (
               <CardSet
                 key={set.id}
-                id={set.id}
-                name={set.name}
-                releaseDate={set.releaseDate}
-                totalCards={set.totalCards}
-                collectedCards={set.collectedCards}
-                imageUrl={set.imageUrl}
+                {...set}
               />
             ))}
           </div>

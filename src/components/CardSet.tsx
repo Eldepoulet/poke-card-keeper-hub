@@ -3,31 +3,25 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { CardSetWithCollectionStats } from '@/types/database';
 
-export interface CardSetProps {
-  id: string;
-  name: string;
-  releaseDate: string;
-  totalCards: number;
-  collectedCards: number;
-  imageUrl: string;
-}
+type CardSetProps = CardSetWithCollectionStats;
 
 const CardSet: React.FC<CardSetProps> = ({ 
   id, 
   name, 
-  releaseDate, 
-  totalCards, 
+  release_date, 
+  total_cards, 
   collectedCards, 
-  imageUrl 
+  image_url 
 }) => {
-  const collectionProgress = Math.round((collectedCards / totalCards) * 100);
+  const collectionProgress = Math.round((collectedCards / total_cards) * 100);
   
   return (
     <div className="set-card">
       <div className="aspect-[2/1] relative overflow-hidden">
         <img 
-          src={imageUrl} 
+          src={image_url} 
           alt={name} 
           className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
         />
@@ -37,8 +31,8 @@ const CardSet: React.FC<CardSetProps> = ({
       </div>
       <div className="p-4">
         <div className="flex justify-between text-sm text-gray-500 mb-1">
-          <span>Released: {releaseDate}</span>
-          <span>{collectedCards}/{totalCards} cards</span>
+          <span>Released: {release_date}</span>
+          <span>{collectedCards}/{total_cards} cards</span>
         </div>
         <Progress 
           value={collectionProgress} 

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Check, X, Plus, Info } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   Tooltip,
@@ -10,23 +10,18 @@ import {
 } from '@/components/ui/tooltip';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { CardWithCollectionStatus } from '@/types/database';
+import { supabase } from '@/integrations/supabase/client';
 
-export interface PokemonCardProps {
-  id: string;
-  name: string;
-  number: string;
-  imageUrl: string;
-  rarity: string;
-  owned: boolean;
+type PokemonCardProps = CardWithCollectionStatus & {
   setId: string;
-  type: string;
-}
+};
 
 const PokemonCard: React.FC<PokemonCardProps> = ({ 
   id, 
   name, 
   number, 
-  imageUrl, 
+  image_url, 
   rarity, 
   owned, 
   setId,
@@ -34,16 +29,45 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
 }) => {
   const [isOwned, setIsOwned] = useState(owned);
 
-  const handleToggleOwned = (e: React.MouseEvent) => {
+  const handleToggleOwned = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    setIsOwned(!isOwned);
+    const { data: session } = await supabase.auth.getSession();
     
-    if (!isOwned) {
-      toast.success(`Added ${name} to your collection!`);
-    } else {
-      toast.info(`Removed ${name} from your collection`);
+    if (!session?.session) {
+      toast.error("Please log in to track your collection");
+      return;
+    }
+    
+    try {
+      if (!isOwned) {
+        // Add card to collection
+        const { error } = await supabase
+          .from('user_collections')
+          .insert({
+            user_id: session.session.user.id,
+            card_id: id
+          });
+          
+        if (error) throw error;
+        setIsOwned(true);
+        toast.success(`Added ${name} to your collection!`);
+      } else {
+        // Remove card from collection
+        const { error } = await supabase
+          .from('user_collections')
+          .delete()
+          .eq('card_id', id)
+          .eq('user_id', session.session.user.id);
+          
+        if (error) throw error;
+        setIsOwned(false);
+        toast.info(`Removed ${name} from your collection`);
+      }
+    } catch (error) {
+      console.error('Error updating collection:', error);
+      toast.error('Failed to update collection');
     }
   };
 
@@ -76,7 +100,7 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
       <Link to={`/sets/${setId}/card/${id}`}>
         <div className="relative aspect-[2.5/3.5] overflow-hidden">
           <img 
-            src={imageUrl} 
+            src={image_url} 
             alt={name} 
             className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
           />

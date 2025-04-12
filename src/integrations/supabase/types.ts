@@ -9,7 +9,109 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      card_sets: {
+        Row: {
+          description: string | null
+          id: string
+          image_url: string
+          name: string
+          release_date: string
+          total_cards: number
+        }
+        Insert: {
+          description?: string | null
+          id: string
+          image_url: string
+          name: string
+          release_date: string
+          total_cards: number
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          image_url?: string
+          name?: string
+          release_date?: string
+          total_cards?: number
+        }
+        Relationships: []
+      }
+      cards: {
+        Row: {
+          attacks: Json | null
+          description: string | null
+          hp: number | null
+          id: string
+          image_url: string
+          name: string
+          number: string
+          rarity: string
+          set_id: string
+          type: string
+        }
+        Insert: {
+          attacks?: Json | null
+          description?: string | null
+          hp?: number | null
+          id: string
+          image_url: string
+          name: string
+          number: string
+          rarity: string
+          set_id: string
+          type: string
+        }
+        Update: {
+          attacks?: Json | null
+          description?: string | null
+          hp?: number | null
+          id?: string
+          image_url?: string
+          name?: string
+          number?: string
+          rarity?: string
+          set_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cards_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "card_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_collections: {
+        Row: {
+          card_id: string
+          collected_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          card_id: string
+          collected_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          card_id?: string
+          collected_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_collections_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
