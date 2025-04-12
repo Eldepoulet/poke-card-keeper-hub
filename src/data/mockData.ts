@@ -170,7 +170,7 @@ export const getCardsForSet = (setId: string) => {
               name: 'Thunder Shock',
               cost: ['Electric'],
               damage: '10',
-              text: 'Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed.'
+              text: "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed."
             },
             {
               name: 'Quick Attack',
@@ -196,7 +196,7 @@ export const getCardsForSet = (setId: string) => {
               name: 'Brave Blade',
               cost: ['Metal', 'Metal', 'Colorless'],
               damage: '230',
-              text: 'During your next turn, this Pokémon can't attack.'
+              text: "During your next turn, this Pokémon can't attack."
             }
           ]
         }
