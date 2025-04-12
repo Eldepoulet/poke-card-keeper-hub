@@ -1,6 +1,60 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { cardSets } from '@/data/mockData';
+
+// Sample data for seeding
+const sampleCardSets = [
+  {
+    id: 'swsh1',
+    name: 'Sword & Shield',
+    release_date: '2020-02-07',
+    total_cards: 202,
+    image_url: 'https://images.pokemontcg.io/swsh1/logo.png',
+    description: 'The first Sword & Shield expansion'
+  },
+  {
+    id: 'swsh7',
+    name: 'Evolving Skies',
+    release_date: '2021-08-27',
+    total_cards: 237,
+    image_url: 'https://images.pokemontcg.io/swsh7/logo.png',
+    description: 'Evolving Skies expansion'
+  }
+];
+
+const sampleCards = {
+  swsh1: [
+    {
+      id: 'swsh1-1',
+      name: 'Grookey',
+      number: '1/202',
+      image_url: 'https://images.pokemontcg.io/swsh1/1.png',
+      rarity: 'Common',
+      type: 'Grass',
+      set_id: 'swsh1',
+      description: 'When a branch falls from a tree, it grows into a new Grookey.',
+      hp: 70
+    }
+  ],
+  swsh7: [
+    {
+      id: 'swsh7-1',
+      name: 'Rayquaza V',
+      number: '1/237',
+      image_url: 'https://images.pokemontcg.io/swsh7/1.png',
+      rarity: 'Ultra Rare',
+      type: 'Dragon',
+      set_id: 'swsh7',
+      description: 'Rayquaza is said to have lived for hundreds of millions of years.',
+      hp: 220,
+      attacks: [
+        {
+          name: 'Dragon Pulse',
+          damage: '120',
+          text: 'Discard 2 Energy from this Pokémon.'
+        }
+      ]
+    }
+  ]
+};
 
 export const seedDatabase = async (forceReset = false) => {
   try {
@@ -13,7 +67,7 @@ export const seedDatabase = async (forceReset = false) => {
       const { error: deleteCollectionsError } = await supabase
         .from('user_collections')
         .delete()
-        .not('id', 'is', null); // Delete all collections
+        .not('id', 'is', null);
       
       if (deleteCollectionsError) {
         console.error('Error deleting user collections:', deleteCollectionsError);
@@ -23,7 +77,7 @@ export const seedDatabase = async (forceReset = false) => {
       const { error: deleteCardsError } = await supabase
         .from('cards')
         .delete()
-        .not('id', 'is', null); // Delete all cards
+        .not('id', 'is', null);
       
       if (deleteCardsError) {
         console.error('Error deleting cards:', deleteCardsError);
@@ -33,7 +87,7 @@ export const seedDatabase = async (forceReset = false) => {
       const { error: deleteSetsError } = await supabase
         .from('card_sets')
         .delete()
-        .not('id', 'is', null); // Delete all sets
+        .not('id', 'is', null);
       
       if (deleteSetsError) {
         console.error('Error deleting card sets:', deleteSetsError);
@@ -56,7 +110,7 @@ export const seedDatabase = async (forceReset = false) => {
         console.log('Database already has card sets, checking if we need to seed cards...');
         
         // Check if specific set has cards
-        const setIdsToCheck = ['swsh1', 'swsh7']; // Add important sets to check here
+        const setIdsToCheck = ['swsh1', 'swsh7'];
         
         for (const setId of setIdsToCheck) {
           const { data: existingCards, error: cardsCheckError } = await supabase
@@ -85,18 +139,9 @@ export const seedDatabase = async (forceReset = false) => {
     console.log('Seeding database with sample data...');
 
     // Insert card sets
-    const formattedSets = cardSets.map(set => ({
-      id: set.id,
-      name: set.name,
-      release_date: set.releaseDate,
-      total_cards: set.totalCards,
-      image_url: set.imageUrl,
-      description: set.description || ''
-    }));
-
     const { error: setsError } = await supabase
       .from('card_sets')
-      .insert(formattedSets);
+      .insert(sampleCardSets);
 
     if (setsError) {
       console.error(`Error inserting card sets:`, setsError);
@@ -106,7 +151,7 @@ export const seedDatabase = async (forceReset = false) => {
     console.log('Successfully inserted card sets, now adding cards...');
 
     // For each set, insert its cards
-    for (const set of cardSets) {
+    for (const set of sampleCardSets) {
       await seedCardsForSet(set.id);
     }
 
@@ -121,34 +166,19 @@ export const seedDatabase = async (forceReset = false) => {
 // Helper function to seed cards for a specific set
 const seedCardsForSet = async (setId: string) => {
   try {
-    // Get cards for this set from mock data
-    const { getCardsForSet } = await import('@/data/mockData');
-    const mockCards = getCardsForSet(setId);
+    const cards = sampleCards[setId as keyof typeof sampleCards];
     
-    if (!mockCards || mockCards.length === 0) {
+    if (!cards || cards.length === 0) {
       console.log(`No cards found for set ${setId}, skipping`);
       return false;
     }
     
-    console.log(`Adding ${mockCards.length} cards for set: ${setId}`);
+    console.log(`Adding ${cards.length} cards for set: ${setId}`);
     
-    const formattedCards = mockCards.map(card => ({
-      id: card.id,
-      name: card.name,
-      number: card.number,
-      image_url: card.imageUrl,
-      rarity: card.rarity,
-      type: card.type,
-      set_id: setId,
-      description: card.description || null,
-      attacks: card.attacks || null,
-      hp: card.hp || null
-    }));
-
     // Insert in smaller batches to avoid payload size issues
     const batchSize = 50;
-    for (let i = 0; i < formattedCards.length; i += batchSize) {
-      const batch = formattedCards.slice(i, i + batchSize);
+    for (let i = 0; i < cards.length; i += batchSize) {
+      const batch = cards.slice(i, i + batchSize);
       const { error: cardsError } = await supabase
         .from('cards')
         .insert(batch);
@@ -157,7 +187,7 @@ const seedCardsForSet = async (setId: string) => {
         console.error(`Error inserting cards batch for set ${setId}:`, cardsError);
         // Continue to next batch even if there's an error
       } else {
-        console.log(`Added batch ${i/batchSize + 1}/${Math.ceil(formattedCards.length/batchSize)} for set ${setId}`);
+        console.log(`Added batch ${i/batchSize + 1}/${Math.ceil(cards.length/batchSize)} for set ${setId}`);
       }
     }
 

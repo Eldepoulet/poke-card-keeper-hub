@@ -1,10 +1,8 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import AuthModal from '@/components/AuthModal';
 import { Button } from '@/components/ui/button';
-import { getCardDetails, getSetDetails } from '@/data/mockData';
 import { ArrowLeft, Check, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -16,26 +14,85 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type CardDetails = Database['public']['Tables']['cards']['Row'] & {
+  artist?: string;
+};
+type SetDetails = Database['public']['Tables']['card_sets']['Row'];
 
 const CardDetails = () => {
   const { setId, cardId } = useParams<{ setId: string; cardId: string }>();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [username, setUsername] = useState('');
+  const [cardDetails, setCardDetails] = useState<CardDetails | null>(null);
+  const [setDetails, setSetDetails] = useState<SetDetails | null>(null);
+  const [isOwned, setIsOwned] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!setId || !cardId) return;
+
+      try {
+        // Fetch card details
+        const { data: cardData, error: cardError } = await supabase
+          .from('cards')
+          .select('*')
+          .eq('id', cardId)
+          .single();
+
+        if (cardError) throw cardError;
+        setCardDetails(cardData);
+
+        // Fetch set details
+        const { data: setData, error: setError } = await supabase
+          .from('card_sets')
+          .select('*')
+          .eq('id', setId)
+          .single();
+
+        if (setError) throw setError;
+        setSetDetails(setData);
+
+        // Check if card is in user's collection
+        if (isLoggedIn) {
+          const { data: collectionData, error: collectionError } = await supabase
+            .from('user_collections')
+            .select('*')
+            .eq('card_id', cardId)
+            .eq('user_id', username)
+            .single();
+
+          if (!collectionError && collectionData) {
+            setIsOwned(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast.error('Failed to load card details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [setId, cardId, isLoggedIn, username]);
 
   if (!setId || !cardId) {
     return <div>Set ID and Card ID are required</div>;
   }
 
-  const cardDetails = getCardDetails(setId, cardId);
-  const setDetails = getSetDetails(setId);
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   if (!cardDetails || !setDetails) {
     return <div>Card not found</div>;
   }
-
-  const [isOwned, setIsOwned] = useState(cardDetails.owned);
 
   const handleLogin = (username: string) => {
     setIsLoggedIn(true);
@@ -48,13 +105,41 @@ const CardDetails = () => {
     setUsername('');
   };
 
-  const handleToggleOwned = () => {
-    setIsOwned(!isOwned);
-    
-    if (!isOwned) {
-      toast.success(`Added ${cardDetails.name} to your collection!`);
-    } else {
-      toast.info(`Removed ${cardDetails.name} from your collection`);
+  const handleToggleOwned = async () => {
+    if (!isLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    try {
+      if (!isOwned) {
+        // Add to collection
+        const { error } = await supabase
+          .from('user_collections')
+          .insert({
+            card_id: cardId,
+            user_id: username,
+            collected_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+        setIsOwned(true);
+        toast.success(`Added ${cardDetails.name} to your collection!`);
+      } else {
+        // Remove from collection
+        const { error } = await supabase
+          .from('user_collections')
+          .delete()
+          .eq('card_id', cardId)
+          .eq('user_id', username);
+
+        if (error) throw error;
+        setIsOwned(false);
+        toast.info(`Removed ${cardDetails.name} from your collection`);
+      }
+    } catch (error) {
+      console.error('Error updating collection:', error);
+      toast.error('Failed to update collection');
     }
   };
 
@@ -97,7 +182,7 @@ const CardDetails = () => {
             <div className="pokemon-card max-w-[350px] w-full">
               <div className="aspect-[2.5/3.5] overflow-hidden">
                 <img 
-                  src={cardDetails.imageUrl} 
+                  src={cardDetails.image_url} 
                   alt={cardDetails.name} 
                   className="w-full h-full object-contain"
                 />
@@ -133,13 +218,15 @@ const CardDetails = () => {
                 <div>{cardDetails.number}</div>
                 <div className="text-gray-600">Rarity:</div>
                 <div>{cardDetails.rarity}</div>
+                <div className="text-gray-600">Artist:</div>
+                <div>{cardDetails.artist || 'Unknown'}</div>
               </div>
             </div>
 
-            {cardDetails.attacks && cardDetails.attacks.length > 0 && (
+            {cardDetails.attacks && (
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-2">Attacks</h2>
-                {cardDetails.attacks.map((attack, index) => (
+                {Array.isArray(cardDetails.attacks) && cardDetails.attacks.map((attack: any, index: number) => (
                   <Card key={index} className="mb-2">
                     <CardHeader className="py-2 px-4">
                       <div className="flex justify-between items-center">
