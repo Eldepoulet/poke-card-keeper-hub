@@ -24,7 +24,16 @@ const Index = () => {
     setUsername('');
   };
 
-  const featuredSets = cardSets.slice(0, 3);
+  // Convert mock data to match our database schema
+  const featuredSets = cardSets.slice(0, 3).map(set => ({
+    id: set.id,
+    name: set.name,
+    release_date: set.releaseDate,
+    total_cards: set.totalCards,
+    collectedCards: set.collectedCards,
+    image_url: set.imageUrl,
+    description: ""
+  }));
 
   return (
     <>
@@ -83,12 +92,7 @@ const Index = () => {
               {featuredSets.map(set => (
                 <CardSet 
                   key={set.id}
-                  id={set.id}
-                  name={set.name}
-                  releaseDate={set.releaseDate}
-                  totalCards={set.totalCards}
-                  collectedCards={set.collectedCards}
-                  imageUrl={set.imageUrl}
+                  {...set}
                 />
               ))}
             </div>
@@ -103,12 +107,7 @@ const Index = () => {
             {featuredSets.map(set => (
               <CardSet 
                 key={set.id}
-                id={set.id}
-                name={set.name}
-                releaseDate={set.releaseDate}
-                totalCards={set.totalCards}
-                collectedCards={set.collectedCards}
-                imageUrl={set.imageUrl}
+                {...set}
               />
             ))}
           </div>

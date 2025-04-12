@@ -94,6 +94,22 @@ const SetDetails = () => {
     return 0;
   });
 
+  // Convert cards to match the schema
+  const formattedCards = sortedCards.map(card => ({
+    id: card.id,
+    name: card.name,
+    number: card.number,
+    image_url: card.imageUrl,
+    rarity: card.rarity,
+    type: card.type,
+    owned: card.owned,
+    setId,
+    description: null,
+    attacks: null,
+    hp: null,
+    set_id: setId
+  }));
+
   return (
     <>
       <Layout isLoggedIn={isLoggedIn} onLogin={() => setShowAuthModal(true)} onLogout={handleLogout}>
@@ -210,19 +226,12 @@ const SetDetails = () => {
           </div>
         </div>
 
-        {sortedCards.length > 0 ? (
+        {formattedCards.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {sortedCards.map(card => (
+            {formattedCards.map(card => (
               <PokemonCard
                 key={card.id}
-                id={card.id}
-                name={card.name}
-                number={card.number}
-                imageUrl={card.imageUrl}
-                rarity={card.rarity}
-                owned={card.owned}
-                setId={setId}
-                type={card.type}
+                {...card}
               />
             ))}
           </div>
