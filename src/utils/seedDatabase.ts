@@ -2,22 +2,48 @@
 import { supabase } from '@/integrations/supabase/client';
 import { cardSets } from '@/data/mockData';
 
-export const seedDatabase = async () => {
+export const seedDatabase = async (forceReset = false) => {
   try {
-    // Check if card sets already exist
-    const { data: existingSets, error: checkError } = await supabase
-      .from('card_sets')
-      .select('id')
-      .limit(1);
+    if (forceReset) {
+      console.log('Force reset requested, clearing existing data...');
+      
+      // Delete data from cards first due to foreign key constraints
+      const { error: deleteCardsError } = await supabase
+        .from('cards')
+        .delete()
+        .not('id', 'is', null); // Delete all cards
+      
+      if (deleteCardsError) {
+        console.error('Error deleting cards:', deleteCardsError);
+      }
+      
+      // Then delete card sets
+      const { error: deleteSetsError } = await supabase
+        .from('card_sets')
+        .delete()
+        .not('id', 'is', null); // Delete all sets
+      
+      if (deleteSetsError) {
+        console.error('Error deleting card sets:', deleteSetsError);
+      }
+      
+      console.log('Existing data cleared, proceeding with seeding...');
+    } else {
+      // Check if card sets already exist
+      const { data: existingSets, error: checkError } = await supabase
+        .from('card_sets')
+        .select('id')
+        .limit(1);
 
-    if (checkError) {
-      console.error('Error checking existing sets:', checkError);
-      return false;
-    }
+      if (checkError) {
+        console.error('Error checking existing sets:', checkError);
+        return false;
+      }
 
-    if (existingSets && existingSets.length > 0) {
-      console.log('Database already has card sets, skipping seeding.');
-      return false;
+      if (existingSets && existingSets.length > 0) {
+        console.log('Database already has card sets, skipping seeding.');
+        return false;
+      }
     }
 
     console.log('Seeding database with sample data...');

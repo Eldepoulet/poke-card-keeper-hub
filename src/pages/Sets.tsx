@@ -12,11 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { CardSetWithCollectionStats } from '@/types/database';
 import { useQuery } from '@tanstack/react-query';
 import { seedDatabase } from '@/utils/seedDatabase';
+import { Button } from '@/components/ui/button';
 
 const Sets = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -27,7 +28,6 @@ const Sets = () => {
   const [isSeeding, setIsSeeding] = useState(false);
   const navigate = useNavigate();
 
-  // Check auth state
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -48,7 +48,6 @@ const Sets = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Attempt to seed database on component mount
   useEffect(() => {
     const attemptSeed = async () => {
       setIsSeeding(true);
@@ -56,7 +55,6 @@ const Sets = () => {
         const success = await seedDatabase();
         if (success) {
           toast.success('Sample card data has been loaded!');
-          // Refetch card sets after seeding
           refetch();
         }
       } catch (error) {
@@ -69,7 +67,26 @@ const Sets = () => {
     attemptSeed();
   }, []);
 
-  // Fetch card sets with collection stats
+  const handleForceRefresh = async () => {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser et recharger toutes les données? Cela supprimera toutes les données existantes.')) {
+      setIsSeeding(true);
+      try {
+        const success = await seedDatabase(true);
+        if (success) {
+          toast.success('La base de données a été réinitialisée et rechargée avec succès!');
+          refetch();
+        } else {
+          toast.error('Échec de la réinitialisation de la base de données.');
+        }
+      } catch (error) {
+        console.error('Failed to reset database:', error);
+        toast.error('Une erreur est survenue lors de la réinitialisation.');
+      } finally {
+        setIsSeeding(false);
+      }
+    }
+  };
+
   const { data: cardSets = [], isLoading, error, refetch } = useQuery({
     queryKey: ['cardSets'],
     queryFn: async () => {
@@ -79,7 +96,6 @@ const Sets = () => {
       
       if (setsError) throw setsError;
       
-      // If user is logged in, get their collection stats for each set
       if (isLoggedIn) {
         const { data: collections, error: collectionsError } = await supabase
           .from('user_collections')
@@ -105,7 +121,6 @@ const Sets = () => {
           } as CardSetWithCollectionStats;
         });
       } else {
-        // If not logged in, set collected cards to 0
         return sets.map(set => ({
           ...set,
           collectedCards: 0,
@@ -126,12 +141,10 @@ const Sets = () => {
     setUsername('');
   };
 
-  // Filter sets based on search query
   const filteredSets = cardSets.filter(set => 
     set.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Sort sets based on sort order
   const sortedSets = [...filteredSets].sort((a, b) => {
     const dateA = new Date(a.release_date);
     const dateB = new Date(b.release_date);
@@ -190,6 +203,16 @@ const Sets = () => {
               </SelectContent>
             </Select>
           </div>
+          
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={handleForceRefresh} 
+            disabled={isSeeding}
+            title="Réinitialiser et recharger la base de données"
+          >
+            <RefreshCw size={18} className={isSeeding ? "animate-spin" : ""} />
+          </Button>
         </div>
 
         {isLoading || isSeeding ? (

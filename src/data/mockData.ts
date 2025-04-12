@@ -1,4 +1,3 @@
-
 // Mock data for Pokemon card sets
 export const cardSets = [
   {
@@ -54,6 +53,15 @@ export const cardSets = [
     collectedCards: 0,
     imageUrl: 'https://images.pokemontcg.io/swsh6/logo.png',
     description: 'Chilling Reign features the Legendary Pokémon Calyrex in its Ice Rider and Shadow Rider forms, as well as the Galarian forms of Articuno, Zapdos, and Moltres.'
+  },
+  {
+    id: 'swsh7',
+    name: 'Evolving Skies',
+    releaseDate: 'Aug 27, 2021',
+    totalCards: 237,
+    collectedCards: 0,
+    imageUrl: 'https://images.pokemontcg.io/swsh7/logo.png',
+    description: 'Evolving Skies features Dragon-type Pokémon returning to the game, as well as Eevee and all of its evolutions in their VMAX forms.'
   }
 ];
 
@@ -201,7 +209,129 @@ export const getCardsForSet = (setId: string) => {
           ]
         }
       ];
-    // Add other sets as needed  
+    case 'swsh7':
+      return [
+        {
+          id: 'swsh7-1',
+          name: 'Leafeon V',
+          number: '1/237',
+          imageUrl: 'https://images.pokemontcg.io/swsh7/1.png',
+          rarity: 'Ultra Rare',
+          owned: false,
+          setId: 'swsh7',
+          type: 'Grass',
+          description: 'Leafeon V is a Grass-type Basic Pokémon V card with the Blend In ability.',
+          hp: 210,
+          attacks: [
+            {
+              name: 'Grass Knot',
+              cost: ['Grass', 'Colorless'],
+              damage: '30+',
+              text: 'This attack does 30 more damage for each Energy in your opponent\'s Active Pokémon\'s Retreat Cost.'
+            }
+          ]
+        },
+        {
+          id: 'swsh7-2',
+          name: 'Leafeon VMAX',
+          number: '8/237',
+          imageUrl: 'https://images.pokemontcg.io/swsh7/8.png',
+          rarity: 'Ultra Rare',
+          owned: false,
+          setId: 'swsh7',
+          type: 'Grass',
+          description: 'Leafeon VMAX is a Grass-type VMAX Pokémon with the Grassroot\'s Guard ability.',
+          hp: 310,
+          attacks: [
+            {
+              name: 'Max Leaf',
+              cost: ['Grass', 'Grass', 'Colorless'],
+              damage: '130',
+              text: 'Heal 30 damage from this Pokémon.'
+            }
+          ]
+        },
+        {
+          id: 'swsh7-3',
+          name: 'Rayquaza V',
+          number: '110/237',
+          imageUrl: 'https://images.pokemontcg.io/swsh7/110.png',
+          rarity: 'Ultra Rare',
+          owned: false,
+          setId: 'swsh7',
+          type: 'Dragon',
+          description: 'Rayquaza V is a Dragon-type Basic Pokémon V card with the Sky-High Powers ability.',
+          hp: 220,
+          attacks: [
+            {
+              name: 'Dragon Pulse',
+              cost: ['Fire', 'Lightning', 'Colorless'],
+              damage: '180',
+              text: 'Discard the top 3 cards of your deck.'
+            }
+          ]
+        },
+        {
+          id: 'swsh7-4',
+          name: 'Rayquaza VMAX',
+          number: '111/237',
+          imageUrl: 'https://images.pokemontcg.io/swsh7/111.png',
+          rarity: 'Ultra Rare',
+          owned: false,
+          setId: 'swsh7',
+          type: 'Dragon',
+          description: 'Rayquaza VMAX is a Dragon-type VMAX Pokémon with the Max Burst attack.',
+          hp: 330,
+          attacks: [
+            {
+              name: 'Max Burst',
+              cost: ['Fire', 'Lightning', 'Colorless', 'Colorless'],
+              damage: '170+',
+              text: 'Discard any amount of Energy from your Pokémon. This attack does 30 more damage for each card you discarded in this way.'
+            }
+          ]
+        },
+        {
+          id: 'swsh7-5',
+          name: 'Umbreon V',
+          number: '189/237',
+          imageUrl: 'https://images.pokemontcg.io/swsh7/189.png',
+          rarity: 'Ultra Rare',
+          owned: false,
+          setId: 'swsh7',
+          type: 'Dark',
+          description: 'Umbreon V is a Dark-type Basic Pokémon V card with the Fast Search ability.',
+          hp: 210,
+          attacks: [
+            {
+              name: 'Dark Pulse',
+              cost: ['Dark', 'Colorless', 'Colorless'],
+              damage: '90+',
+              text: 'This attack does 30 more damage for each Dark Energy attached to all of your Pokémon.'
+            }
+          ]
+        },
+        {
+          id: 'swsh7-6',
+          name: 'Umbreon VMAX',
+          number: '215/237',
+          imageUrl: 'https://images.pokemontcg.io/swsh7/215.png',
+          rarity: 'Ultra Rare',
+          owned: false,
+          setId: 'swsh7',
+          type: 'Dark',
+          description: 'Umbreon VMAX is a Dark-type VMAX Pokémon with the Max Darkness attack.',
+          hp: 310,
+          attacks: [
+            {
+              name: 'Max Darkness',
+              cost: ['Dark', 'Dark', 'Colorless'],
+              damage: '160',
+              text: 'Discard an Energy from your opponent\'s Active Pokémon.'
+            }
+          ]
+        }
+      ];
     default:
       return [
         {

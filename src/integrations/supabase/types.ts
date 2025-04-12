@@ -16,6 +16,7 @@ export type Database = {
           image_url: string
           name: string
           release_date: string
+          series: string | null
           total_cards: number
         }
         Insert: {
@@ -24,6 +25,7 @@ export type Database = {
           image_url: string
           name: string
           release_date: string
+          series?: string | null
           total_cards: number
         }
         Update: {
@@ -32,6 +34,7 @@ export type Database = {
           image_url?: string
           name?: string
           release_date?: string
+          series?: string | null
           total_cards?: number
         }
         Relationships: []
