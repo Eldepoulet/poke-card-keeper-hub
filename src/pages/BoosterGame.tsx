@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import BoosterPack from '@/components/BoosterPack';
 import { toast } from 'sonner';
 import { CardWithCollectionStatus } from '@/types/database';
+import { getUserGameCollection, getGameCollectionCount, addCardToGameCollection } from '@/types/database';
 
 const BoosterGame = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -26,7 +27,7 @@ const BoosterGame = () => {
       if (session) {
         setIsLoggedIn(true);
         setUsername(session.user.id);
-        getGameCollectionCount(session.user.id);
+        fetchGameCollectionCount(session.user.id);
       }
     };
 
@@ -37,7 +38,7 @@ const BoosterGame = () => {
         if (session) {
           setIsLoggedIn(true);
           setUsername(session.user.id);
-          getGameCollectionCount(session.user.id);
+          fetchGameCollectionCount(session.user.id);
         } else {
           setIsLoggedIn(false);
           setUsername('');
@@ -51,12 +52,10 @@ const BoosterGame = () => {
     };
   }, []);
 
-  const getGameCollectionCount = async (userId: string) => {
+  const fetchGameCollectionCount = async (userId: string) => {
     try {
-      // Use raw SQL query with count to avoid TypeScript errors
-      const { count, error } = await supabase
-        .rpc('get_game_collection_count', { user_id_param: userId })
-        .single();
+      // First try using our RPC function
+      const { count, error } = await getGameCollectionCount(userId);
       
       if (error) {
         console.error('Error fetching game collection count:', error);
@@ -65,16 +64,20 @@ const BoosterGame = () => {
       
       setGameCollectionCount(count || 0);
     } catch (error) {
-      console.error('Error in getGameCollectionCount:', error);
+      console.error('Error in fetchGameCollectionCount:', error);
       
-      // Fallback method if RPC doesn't work
+      // Fallback method if direct REST API doesn't work
       try {
-        const { data, error, count } = await supabase
-          .from('game_collections')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId);
+        // Use raw SQL query with count to avoid TypeScript errors
+        const { count, error } = await supabase
+          .rpc('get_game_collection_count', { user_id_param: userId })
+          .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching game collection count:', error);
+          return;
+        }
+        
         setGameCollectionCount(count || 0);
       } catch (fallbackError) {
         console.error('Fallback error:', fallbackError);
@@ -86,7 +89,7 @@ const BoosterGame = () => {
     setIsLoggedIn(true);
     setUsername(username);
     setShowAuthModal(false);
-    getGameCollectionCount(username);
+    fetchGameCollectionCount(username);
   };
 
   const handleLogout = () => {
@@ -113,20 +116,29 @@ const BoosterGame = () => {
       if (error) throw error;
 
       // Check which cards are already in the game collection
-      const { data: gameCollection, error: collectionError } = await supabase
-        .rpc('get_user_game_collection', { user_id_param: username });
+      const { data: gameCollection, error: collectionError } = await getUserGameCollection(username);
 
       if (collectionError) {
         console.error('Error fetching game collection:', collectionError);
-        // Fallback to direct query
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('game_collections')
-          .select('card_id')
-          .eq('user_id', username);
+        // Try the RPC function
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_user_game_collection', { user_id_param: username });
           
-        if (fallbackError) throw fallbackError;
+        if (rpcError) {
+          console.error('RPC error:', rpcError);
+          // Fallback to a simpler approach
+          const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
+            ...card,
+            owned: false // Default to false if we can't determine
+          }));
+          
+          setBoosterCards(cardsWithStatus);
+          setIsOpened(true);
+          return;
+        }
         
-        const ownedCardIds = fallbackData?.map(item => item.card_id) || [];
+        // Use the RPC result
+        const ownedCardIds = rpcData?.map(item => item.card_id) || [];
         
         // Transform raw cards to include ownership status
         const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
@@ -136,7 +148,7 @@ const BoosterGame = () => {
         
         setBoosterCards(cardsWithStatus);
       } else {
-        // Use the RPC result
+        // Use the direct REST API result
         const ownedCardIds = gameCollection?.map(item => item.card_id) || [];
         
         // Transform raw cards to include ownership status
@@ -164,25 +176,24 @@ const BoosterGame = () => {
     }
 
     try {
-      // Use a direct INSERT statement with values to avoid type issues
-      const { error } = await supabase.rpc(
-        'add_card_to_game_collection',
-        { 
-          user_id_param: username,
-          card_id_param: cardId
-        }
-      );
+      // Try using our helper function
+      const { error } = await addCardToGameCollection(username, cardId);
 
       if (error) {
-        // Fallback to direct insert
-        const { error: fallbackError } = await supabase
-          .from('game_collections')
-          .insert({
-            user_id: username,
-            card_id: cardId,
-          });
-          
-        if (fallbackError) throw fallbackError;
+        // Fallback to RPC
+        const { error: rpcError } = await supabase.rpc(
+          'add_card_to_game_collection',
+          { 
+            user_id_param: username,
+            card_id_param: cardId
+          }
+        );
+
+        if (rpcError) {
+          console.error('RPC error:', rpcError);
+          toast.error('Failed to add card to collection');
+          return;
+        }
       }
 
       // Update local state
