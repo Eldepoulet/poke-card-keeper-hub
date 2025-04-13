@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -141,7 +142,9 @@ const BoosterGame = () => {
         }
         
         // Use the RPC result if it exists
-        const ownedCardIds = Array.isArray(rpcData) ? rpcData.map((item: any) => item.card_id) : [];
+        const ownedCardIds = rpcData !== null && Array.isArray(rpcData) 
+          ? rpcData.map((item: any) => item.card_id) 
+          : [];
         
         // Transform raw cards to include ownership status
         const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
