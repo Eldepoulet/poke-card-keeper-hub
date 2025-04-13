@@ -86,6 +86,35 @@ export type Database = {
           },
         ]
       }
+      game_collections: {
+        Row: {
+          card_id: string
+          collected_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          card_id: string
+          collected_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          card_id?: string
+          collected_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_collections_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_collections: {
         Row: {
           card_id: string

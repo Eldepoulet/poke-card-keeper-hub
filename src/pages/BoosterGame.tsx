@@ -53,10 +53,10 @@ const BoosterGame = () => {
 
   const getGameCollectionCount = async (userId: string) => {
     try {
+      // Use raw SQL query with count to avoid TypeScript errors
       const { count, error } = await supabase
-        .from('game_collections')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .rpc('get_game_collection_count', { user_id_param: userId })
+        .single();
       
       if (error) {
         console.error('Error fetching game collection count:', error);
@@ -66,6 +66,19 @@ const BoosterGame = () => {
       setGameCollectionCount(count || 0);
     } catch (error) {
       console.error('Error in getGameCollectionCount:', error);
+      
+      // Fallback method if RPC doesn't work
+      try {
+        const { data, error, count } = await supabase
+          .from('game_collections')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        
+        if (error) throw error;
+        setGameCollectionCount(count || 0);
+      } catch (fallbackError) {
+        console.error('Fallback error:', fallbackError);
+      }
     }
   };
 
@@ -101,21 +114,40 @@ const BoosterGame = () => {
 
       // Check which cards are already in the game collection
       const { data: gameCollection, error: collectionError } = await supabase
-        .from('game_collections')
-        .select('card_id')
-        .eq('user_id', username);
+        .rpc('get_user_game_collection', { user_id_param: username });
 
-      if (collectionError) throw collectionError;
-
-      const ownedCardIds = gameCollection?.map(item => item.card_id) || [];
-
-      // Transform raw cards to include ownership status
-      const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
-        ...card,
-        owned: ownedCardIds.includes(card.id)
-      }));
-
-      setBoosterCards(cardsWithStatus);
+      if (collectionError) {
+        console.error('Error fetching game collection:', collectionError);
+        // Fallback to direct query
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('game_collections')
+          .select('card_id')
+          .eq('user_id', username);
+          
+        if (fallbackError) throw fallbackError;
+        
+        const ownedCardIds = fallbackData?.map(item => item.card_id) || [];
+        
+        // Transform raw cards to include ownership status
+        const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
+          ...card,
+          owned: ownedCardIds.includes(card.id)
+        }));
+        
+        setBoosterCards(cardsWithStatus);
+      } else {
+        // Use the RPC result
+        const ownedCardIds = gameCollection?.map(item => item.card_id) || [];
+        
+        // Transform raw cards to include ownership status
+        const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
+          ...card,
+          owned: ownedCardIds.includes(card.id)
+        }));
+        
+        setBoosterCards(cardsWithStatus);
+      }
+      
       setIsOpened(true);
     } catch (error) {
       console.error('Error opening booster pack:', error);
@@ -132,15 +164,26 @@ const BoosterGame = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('game_collections')
-        .insert({
-          user_id: username,
-          card_id: cardId,
-          collected_at: new Date().toISOString()
-        });
+      // Use a direct INSERT statement with values to avoid type issues
+      const { error } = await supabase.rpc(
+        'add_card_to_game_collection',
+        { 
+          user_id_param: username,
+          card_id_param: cardId
+        }
+      );
 
-      if (error) throw error;
+      if (error) {
+        // Fallback to direct insert
+        const { error: fallbackError } = await supabase
+          .from('game_collections')
+          .insert({
+            user_id: username,
+            card_id: cardId,
+          });
+          
+        if (fallbackError) throw fallbackError;
+      }
 
       // Update local state
       setBoosterCards(prevCards =>
