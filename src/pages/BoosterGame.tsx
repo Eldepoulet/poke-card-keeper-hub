@@ -70,7 +70,7 @@ const BoosterGame = () => {
         // Use an RPC function that returns a number directly
         const { data, error } = await supabase.rpc('get_game_collection_count_safe', {
           user_id_param: userId
-        });
+        }) as { data: number | null; error: any };
         
         if (error) {
           console.error('RPC error:', error);
@@ -125,7 +125,7 @@ const BoosterGame = () => {
         // Try the RPC function as fallback
         const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_game_collection_safe', {
           user_id_param: username
-        });
+        }) as { data: Array<{ card_id: string }> | null; error: any };
           
         if (rpcError) {
           console.error('RPC error:', rpcError);
@@ -141,9 +141,7 @@ const BoosterGame = () => {
         }
         
         // Use the RPC result if it exists
-        const ownedCardIds = rpcData !== null && Array.isArray(rpcData) 
-          ? rpcData.map((item: any) => item.card_id) 
-          : [];
+        const ownedCardIds = rpcData ? rpcData.map(item => item.card_id) : [];
         
         // Transform raw cards to include ownership status
         const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
@@ -189,7 +187,7 @@ const BoosterGame = () => {
         const { error: rpcError } = await supabase.rpc('add_card_to_game_collection_safe', { 
           user_id_param: username,
           card_id_param: cardId
-        });
+        }) as { error: any };
 
         if (rpcError) {
           console.error('RPC error:', rpcError);
