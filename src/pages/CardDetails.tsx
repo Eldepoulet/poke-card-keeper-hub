@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -17,9 +18,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
-type CardDetails = Database['public']['Tables']['cards']['Row'] & {
-  artist?: string;
-};
+type CardDetails = Database['public']['Tables']['cards']['Row'];
 type SetDetails = Database['public']['Tables']['card_sets']['Row'];
 
 const CardDetails = () => {
@@ -202,7 +201,7 @@ const CardDetails = () => {
             <p className="text-gray-500 mb-4">#{cardDetails.number} • {setDetails.name}</p>
             
             <div className="mb-6">
-              <p className="text-gray-700">{cardDetails.description}</p>
+              {/* Removed the description as it no longer exists in the database schema */}
             </div>
 
             <div className="mb-6">
@@ -220,31 +219,16 @@ const CardDetails = () => {
                 <div>{cardDetails.rarity}</div>
                 <div className="text-gray-600">Artist:</div>
                 <div>{cardDetails.artist || 'Unknown'}</div>
+                {cardDetails.supertype && (
+                  <>
+                    <div className="text-gray-600">Supertype:</div>
+                    <div>{cardDetails.supertype}</div>
+                  </>
+                )}
               </div>
             </div>
 
-            {cardDetails.attacks && (
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-2">Attacks</h2>
-                {Array.isArray(cardDetails.attacks) && cardDetails.attacks.map((attack: any, index: number) => (
-                  <Card key={index} className="mb-2">
-                    <CardHeader className="py-2 px-4">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-base">{attack.name}</CardTitle>
-                        <div className="text-sm text-gray-700">
-                          {attack.damage}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    {attack.text && (
-                      <CardContent className="py-2 px-4">
-                        <p className="text-sm text-gray-600">{attack.text}</p>
-                      </CardContent>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            )}
+            {/* Removed attacks section as it no longer exists in the database schema */}
 
             <Button 
               onClick={handleToggleOwned}
