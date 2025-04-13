@@ -52,17 +52,21 @@ const BoosterGame = () => {
   }, []);
 
   const getGameCollectionCount = async (userId: string) => {
-    const { count, error } = await supabase
-      .from('game_collections')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-    
-    if (error) {
-      console.error('Error fetching game collection count:', error);
-      return;
+    try {
+      const { count, error } = await supabase
+        .from('game_collections')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error('Error fetching game collection count:', error);
+        return;
+      }
+      
+      setGameCollectionCount(count || 0);
+    } catch (error) {
+      console.error('Error in getGameCollectionCount:', error);
     }
-    
-    setGameCollectionCount(count || 0);
   };
 
   const handleLogin = (username: string) => {
@@ -89,8 +93,8 @@ const BoosterGame = () => {
       // Get 5 random cards from the database
       const { data: randomCards, error } = await supabase
         .from('cards')
-        .select('*, game_collections!inner(user_id)')
-        .eq('game_collections.user_id', username)
+        .select('*')
+        .order('id')
         .limit(5);
 
       if (error) throw error;

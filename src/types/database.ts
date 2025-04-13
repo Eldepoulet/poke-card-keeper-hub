@@ -20,3 +20,4 @@ export type GameCollection = {
   card_id: string;
   collected_at: string;
 };
+
