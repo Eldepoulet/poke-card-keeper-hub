@@ -15,3 +15,8 @@ export type CardWithCollectionStatus = Card & {
 
 // User collection types
 export type UserCollection = Tables<"user_collections">;
+export type GameCollection = {
+  user_id: string;
+  card_id: string;
+  collected_at: string;
+};
