@@ -149,25 +149,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_game_collection_count_safe: {
-        Args: {
-          user_id_param: string
-        }
-        Returns: number
-      }
-      get_user_game_collection_safe: {
-        Args: {
-          user_id_param: string
-        }
-        Returns: Array<{ card_id: string }>
-      }
-      add_card_to_game_collection_safe: {
-        Args: {
-          user_id_param: string
-          card_id_param: string
-        }
-        Returns: void
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never

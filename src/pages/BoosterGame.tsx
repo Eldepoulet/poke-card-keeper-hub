@@ -64,33 +64,14 @@ const BoosterGame = () => {
       setGameCollectionCount(count || 0);
     } catch (error) {
       console.error('Error in fetchGameCollectionCount:', error);
-      
-      // Fallback method - try to calculate from database using rpc
-      try {
-        // Use an RPC function that returns a number directly
-        const { data, error } = await supabase.rpc('get_game_collection_count_safe', {
-          user_id_param: userId
-        }) as { data: number | null; error: any };
-        
-        if (error) {
-          console.error('RPC error:', error);
-          return;
-        }
-        
-        if (data !== null) {
-          setGameCollectionCount(Number(data));
-        }
-      } catch (fallbackError) {
-        console.error('Fallback error:', fallbackError);
-      }
     }
   };
 
-  const handleLogin = (username: string) => {
+  const handleLogin = (userId: string) => {
     setIsLoggedIn(true);
-    setUsername(username);
+    setUsername(userId);
     setShowAuthModal(false);
-    fetchGameCollectionCount(username);
+    fetchGameCollectionCount(userId);
   };
 
   const handleLogout = () => {
@@ -122,47 +103,27 @@ const BoosterGame = () => {
 
       if (collectionError || !gameCollection) {
         console.error('Error fetching game collection:', collectionError);
-        // Try the RPC function as fallback
-        const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_game_collection_safe', {
-          user_id_param: username
-        }) as { data: Array<{ card_id: string }> | null; error: any };
-          
-        if (rpcError) {
-          console.error('RPC error:', rpcError);
-          // Fallback to a simpler approach
-          const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
-            ...card,
-            owned: false // Default to false if we can't determine
-          }));
-          
-          setBoosterCards(cardsWithStatus);
-          setIsOpened(true);
-          return;
-        }
         
-        // Use the RPC result if it exists
-        const ownedCardIds = rpcData ? rpcData.map(item => item.card_id) : [];
-        
-        // Transform raw cards to include ownership status
+        // Set default owned status to false if we can't determine
         const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
           ...card,
-          owned: ownedCardIds.includes(card.id)
+          owned: false
         }));
         
         setBoosterCards(cardsWithStatus);
-      } else {
-        // Use the direct REST API result
-        const ownedCardIds = gameCollection.map(item => item.card_id) || [];
-        
-        // Transform raw cards to include ownership status
-        const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
-          ...card,
-          owned: ownedCardIds.includes(card.id)
-        }));
-        
-        setBoosterCards(cardsWithStatus);
+        setIsOpened(true);
+        return;
       }
       
+      // Transform raw cards to include ownership status
+      const ownedCardIds = gameCollection.map(item => item.card_id);
+      
+      const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
+        ...card,
+        owned: ownedCardIds.includes(card.id)
+      }));
+      
+      setBoosterCards(cardsWithStatus);
       setIsOpened(true);
     } catch (error) {
       console.error('Error opening booster pack:', error);
@@ -183,17 +144,9 @@ const BoosterGame = () => {
       const { error } = await addCardToGameCollection(username, cardId);
 
       if (error) {
-        // Fallback to RPC
-        const { error: rpcError } = await supabase.rpc('add_card_to_game_collection_safe', { 
-          user_id_param: username,
-          card_id_param: cardId
-        }) as { error: any };
-
-        if (rpcError) {
-          console.error('RPC error:', rpcError);
-          toast.error('Failed to add card to collection');
-          return;
-        }
+        console.error('Error adding card to collection:', error);
+        toast.error('Failed to add card to collection');
+        return;
       }
 
       // Update local state
