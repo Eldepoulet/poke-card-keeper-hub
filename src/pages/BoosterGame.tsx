@@ -54,7 +54,7 @@ const BoosterGame = () => {
 
   const fetchGameCollectionCount = async (userId: string) => {
     try {
-      // First try using our RPC function
+      // Use our helper function
       const { count, error } = await getGameCollectionCount(userId);
       
       if (error) {
@@ -66,7 +66,7 @@ const BoosterGame = () => {
     } catch (error) {
       console.error('Error in fetchGameCollectionCount:', error);
       
-      // Fallback method if direct REST API doesn't work
+      // Fallback method if REST API doesn't work
       try {
         // Use raw SQL query with count to avoid TypeScript errors
         const { count, error } = await supabase
@@ -118,9 +118,9 @@ const BoosterGame = () => {
       // Check which cards are already in the game collection
       const { data: gameCollection, error: collectionError } = await getUserGameCollection(username);
 
-      if (collectionError) {
+      if (collectionError || !gameCollection) {
         console.error('Error fetching game collection:', collectionError);
-        // Try the RPC function
+        // Try the RPC function as fallback
         const { data: rpcData, error: rpcError } = await supabase
           .rpc('get_user_game_collection', { user_id_param: username });
           
@@ -138,7 +138,7 @@ const BoosterGame = () => {
         }
         
         // Use the RPC result
-        const ownedCardIds = rpcData?.map(item => item.card_id) || [];
+        const ownedCardIds = rpcData ? rpcData.map((item: any) => item.card_id) : [];
         
         // Transform raw cards to include ownership status
         const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
@@ -149,7 +149,7 @@ const BoosterGame = () => {
         setBoosterCards(cardsWithStatus);
       } else {
         // Use the direct REST API result
-        const ownedCardIds = gameCollection?.map(item => item.card_id) || [];
+        const ownedCardIds = gameCollection.map(item => item.card_id) || [];
         
         // Transform raw cards to include ownership status
         const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
@@ -176,7 +176,7 @@ const BoosterGame = () => {
     }
 
     try {
-      // Try using our helper function
+      // Use our helper function
       const { error } = await addCardToGameCollection(username, cardId);
 
       if (error) {
