@@ -41,8 +41,7 @@ export type Database = {
       }
       cards: {
         Row: {
-          attacks: Json | null
-          description: string | null
+          artist: string | null
           hp: number | null
           id: string
           image_url: string
@@ -50,11 +49,11 @@ export type Database = {
           number: string
           rarity: string
           set_id: string
+          supertype: string | null
           type: string
         }
         Insert: {
-          attacks?: Json | null
-          description?: string | null
+          artist?: string | null
           hp?: number | null
           id: string
           image_url: string
@@ -62,11 +61,11 @@ export type Database = {
           number: string
           rarity: string
           set_id: string
+          supertype?: string | null
           type: string
         }
         Update: {
-          attacks?: Json | null
-          description?: string | null
+          artist?: string | null
           hp?: number | null
           id?: string
           image_url?: string
@@ -74,6 +73,7 @@ export type Database = {
           number?: string
           rarity?: string
           set_id?: string
+          supertype?: string | null
           type?: string
         }
         Relationships: [

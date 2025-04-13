@@ -75,24 +75,35 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
   };
 
   return (
-    <div className={`pokemon-card relative rounded-lg overflow-hidden border-2 ${getCardColorClass()} transition-all duration-300 hover:shadow-lg`}>
+    <div 
+      className={`pokemon-card relative rounded-lg overflow-hidden border-2 ${getCardColorClass()} transition-all duration-300 hover:shadow-lg ${
+        isCollected 
+          ? 'bg-green-50 ring-2 ring-green-300 ring-offset-2 scale-[1.02]' 
+          : 'bg-white opacity-80'
+      }`}
+    >
       <Link to={`/sets/${set_id}/card/${id}`} className="block">
         <div className="aspect-[2/3] bg-gray-100">
           <img 
             src={image_url} 
             alt={name} 
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${isCollected ? 'brightness-110' : 'grayscale-[30%]'}`}
             loading="lazy"
           />
         </div>
-        <div className="p-2 bg-white">
+        <div className={`p-2 ${isCollected ? 'bg-green-50' : 'bg-white'}`}>
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs text-gray-500">#{number}</span>
             <span className="text-xs font-medium text-gray-700 capitalize">{rarity}</span>
           </div>
-          <h3 className="font-medium text-sm truncate" title={name}>{name}</h3>
+          <h3 className={`font-medium text-sm truncate ${isCollected ? 'text-green-700' : ''}`} title={name}>{name}</h3>
         </div>
       </Link>
+      {isCollected && (
+        <div className="absolute top-0 left-0 bg-green-500 text-white text-xs px-2 py-0.5 font-medium">
+          Collected
+        </div>
+      )}
       <button
         onClick={(e) => {
           e.preventDefault();
