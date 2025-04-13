@@ -7,14 +7,18 @@ import AuthModal from '@/components/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
 import BoosterPack from '@/components/BoosterPack';
 import { toast } from 'sonner';
-import { CardWithCollectionStatus } from '@/types/database';
+import { CardWithCollectionStatus, CardSet } from '@/types/database';
 import { getUserGameCollection, getGameCollectionCount, addCardToGameCollection } from '@/types/database';
+
+type CardWithSet = CardWithCollectionStatus & {
+  set: CardSet;
+};
 
 const BoosterGame = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [username, setUsername] = useState('');
-  const [boosterCards, setBoosterCards] = useState<CardWithCollectionStatus[]>([]);
+  const [boosterCards, setBoosterCards] = useState<CardWithSet[]>([]);
   const [isOpened, setIsOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [gameCollectionCount, setGameCollectionCount] = useState(0);
@@ -88,43 +92,222 @@ const BoosterGame = () => {
 
     setIsLoading(true);
     try {
-      // Get 5 random cards from the database
-      const { data: randomCards, error } = await supabase
-        .from('cards')
-        .select('*')
-        .order('id')
-        .limit(5);
+      // Récupérer toutes les cartes avec pagination
+      let allCards: CardWithSet[] = [];
+      let hasMore = true;
+      let page = 0;
+      const pageSize = 1000;
 
-      if (error) throw error;
-      if (!randomCards) throw new Error('No cards returned');
+      while (hasMore) {
+        const { data: cards, error } = await supabase
+          .from('cards')
+          .select(`
+            *,
+            set:card_sets!inner(*)
+          `)
+          .range(page * pageSize, (page + 1) * pageSize - 1)
+          .order('id');
 
-      // Check which cards are already in the game collection
-      const { data: gameCollection, error: collectionError } = await getUserGameCollection(username);
+        if (error) throw error;
+        if (!cards) throw new Error('No cards returned');
 
-      if (collectionError || !gameCollection) {
-        console.error('Error fetching game collection:', collectionError);
-        
-        // Set default owned status to false if we can't determine
-        const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
+        allCards = [...allCards, ...cards.map(card => ({
           ...card,
           owned: false
-        }));
+        }))];
         
+        if (cards.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+
+      // Mélanger les cartes aléatoirement
+      const shuffledCards = [...allCards].sort(() => Math.random() - 0.5);
+
+      // Définir les groupes de raretés et leurs poids
+      const rarityGroups = {
+        common: {
+          rarities: ['Common', 'Promo'],
+          count: 3 // 3 cartes communes ou promo
+        },
+        uncommon: {
+          rarities: ['Uncommon', 'Rare'],
+          count: 1 // 1 carte uncommon ou rare
+        },
+        rarePlus: {
+          categories: {
+            rareHolo: {
+              rarities: [
+                'Rare Holo',
+                'Rare Holo EX',
+                'Rare Holo GX',
+                'Rare Holo V',
+                'Rare Holo VSTAR',
+                'Rare Holo VMAX',
+                'Rare BREAK',
+                'Rare Prime',
+                'Rare Ultra',
+                'Rare Shiny',
+                'Rare Shiny GX',
+                'Trainer Gallery Rare Holo'
+              ],
+              weight: 0.7 // 70% de chance d'obtenir une carte de cette catégorie
+            },
+            ultraRare: {
+              rarities: [
+                'Ultra Rare',
+                'Rare Rainbow',
+                'Rare Holo Star',
+                'Rare Holo LV.X',
+                'Rare Prism Star',
+                'Rare Secret',
+                'Rare Shining',
+                'Rare ACE',
+                'ACE SPEC Rare',
+                'Double Rare',
+                'Amazing Rare',
+                'Radiant Rare'
+              ],
+              weight: 0.25 // 25% de chance d'obtenir une carte de cette catégorie
+            },
+            hyperRare: {
+              rarities: [
+                'Hyper Rare',
+                'Special Illustration Rare',
+                'Illustration Rare',
+                'Shiny Ultra Rare',
+                'LEGEND',
+                'Classic Collection'
+              ],
+              weight: 0.05 // 5% de chance d'obtenir une carte de cette catégorie
+            }
+          },
+          count: 1 // 1 carte rare ou mieux
+        }
+      };
+
+      // Grouper les cartes par rareté
+      const cardsByRarity = shuffledCards.reduce((acc, card) => {
+        const rarity = card.rarity;
+        
+        // Grouper les cartes communes et uncommon
+        for (const [group, data] of Object.entries(rarityGroups)) {
+          if (group === 'rarePlus') continue;
+          if ('rarities' in data && data.rarities.includes(rarity)) {
+            if (!acc[group]) {
+              acc[group] = [];
+            }
+            acc[group].push(card);
+            break;
+          }
+        }
+
+        // Grouper les cartes rares par sous-catégorie
+        if (rarityGroups.rarePlus) {
+          for (const [category, data] of Object.entries(rarityGroups.rarePlus.categories)) {
+            if (data.rarities.includes(rarity)) {
+              if (!acc.rarePlus) {
+                acc.rarePlus = {};
+              }
+              if (!acc.rarePlus[category]) {
+                acc.rarePlus[category] = [];
+              }
+              acc.rarePlus[category].push(card);
+              break;
+            }
+          }
+        }
+
+        return acc;
+      }, {} as Record<string, any>);
+
+      // Sélectionner les cartes selon la distribution
+      const selectedCards: CardWithSet[] = [];
+
+      // Sélectionner les cartes communes
+      for (let i = 0; i < rarityGroups.common.count; i++) {
+        if (cardsByRarity.common?.length) {
+          const randomIndex = Math.floor(Math.random() * cardsByRarity.common.length);
+          selectedCards.push(cardsByRarity.common[randomIndex]);
+        }
+      }
+
+      // Sélectionner une carte uncommon/rare
+      if (cardsByRarity.uncommon?.length) {
+        const randomIndex = Math.floor(Math.random() * cardsByRarity.uncommon.length);
+        selectedCards.push(cardsByRarity.uncommon[randomIndex]);
+      }
+
+      // Sélectionner une carte rare ou mieux selon les poids
+      if (cardsByRarity.rarePlus) {
+        const random = Math.random();
+        let selectedCategory = null;
+        let cumulativeWeight = 0;
+
+        // Déterminer la catégorie en fonction des poids
+        for (const [category, data] of Object.entries(rarityGroups.rarePlus.categories)) {
+          cumulativeWeight += data.weight;
+          if (random <= cumulativeWeight) {
+            selectedCategory = category;
+            break;
+          }
+        }
+
+        // Si aucune catégorie n'a été sélectionnée (à cause des arrondis), prendre la dernière
+        if (!selectedCategory) {
+          selectedCategory = Object.keys(rarityGroups.rarePlus.categories).pop();
+        }
+
+        // Sélectionner une carte de la catégorie choisie
+        if (cardsByRarity.rarePlus[selectedCategory]?.length) {
+          const randomIndex = Math.floor(Math.random() * cardsByRarity.rarePlus[selectedCategory].length);
+          selectedCards.push(cardsByRarity.rarePlus[selectedCategory][randomIndex]);
+        }
+      }
+
+      // Si on n'a pas assez de cartes, compléter avec des cartes aléatoires
+      while (selectedCards.length < 5) {
+        const remainingCards = shuffledCards.filter(card => !selectedCards.includes(card));
+        if (remainingCards.length === 0) break;
+        const randomIndex = Math.floor(Math.random() * remainingCards.length);
+        selectedCards.push(remainingCards[randomIndex]);
+      }
+
+      // Vérifier le statut de possession et collecter automatiquement les nouvelles cartes
+      const { data: gameCollection, error: collectionError } = await getUserGameCollection(username);
+      if (!collectionError && gameCollection) {
+        const ownedCardIds = new Set(gameCollection.map(item => item.card_id));
+        const newCards = selectedCards.filter(card => !ownedCardIds.has(card.id));
+
+        // Collecter automatiquement les nouvelles cartes
+        for (const card of newCards) {
+          const { error: addError } = await addCardToGameCollection(username, card.id);
+          if (!addError) {
+            setGameCollectionCount(prev => prev + 1);
+          }
+        }
+
+        // Mettre à jour le statut de possession pour l'affichage
+        const cardsWithStatus = selectedCards.map(card => ({
+          ...card,
+          owned: true // Toutes les cartes sont maintenant possédées
+        }));
         setBoosterCards(cardsWithStatus);
-        setIsOpened(true);
-        return;
+      } else {
+        // Si on ne peut pas vérifier la collection, collecter toutes les cartes
+        for (const card of selectedCards) {
+          const { error: addError } = await addCardToGameCollection(username, card.id);
+          if (!addError) {
+            setGameCollectionCount(prev => prev + 1);
+          }
+        }
+        setBoosterCards(selectedCards.map(card => ({ ...card, owned: true })));
       }
       
-      // Transform raw cards to include ownership status
-      const ownedCardIds = gameCollection.map(item => item.card_id);
-      
-      const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
-        ...card,
-        owned: ownedCardIds.includes(card.id)
-      }));
-      
-      setBoosterCards(cardsWithStatus);
       setIsOpened(true);
+      toast.success('New cards have been added to your collection!');
     } catch (error) {
       console.error('Error opening booster pack:', error);
       toast.error('Failed to open booster pack');
@@ -134,36 +317,9 @@ const BoosterGame = () => {
   };
 
   const addToGameCollection = async (cardId: string) => {
-    if (!isLoggedIn) {
-      setShowAuthModal(true);
-      return;
-    }
-
-    try {
-      // Use our helper function
-      const { error } = await addCardToGameCollection(username, cardId);
-
-      if (error) {
-        console.error('Error adding card to collection:', error);
-        toast.error('Failed to add card to collection');
-        return;
-      }
-
-      // Update local state
-      setBoosterCards(prevCards =>
-        prevCards.map(card =>
-          card.id === cardId ? { ...card, owned: true } : card
-        )
-      );
-      
-      // Update collection count
-      setGameCollectionCount(prev => prev + 1);
-      
-      toast.success('Card added to your game collection!');
-    } catch (error) {
-      console.error('Error adding card to collection:', error);
-      toast.error('Failed to add card to collection');
-    }
+    // Cette fonction n'est plus nécessaire car les cartes sont collectées automatiquement
+    // Mais nous la gardons pour la compatibilité avec le composant BoosterPack
+    return;
   };
 
   const resetBooster = () => {

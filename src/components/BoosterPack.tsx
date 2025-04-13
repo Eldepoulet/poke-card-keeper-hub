@@ -1,16 +1,19 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CardWithCollectionStatus } from '@/types/database';
+import { CardWithCollectionStatus, CardSet } from '@/types/database';
 import { Check, Package, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-interface BoosterPackProps {
-  cards: CardWithCollectionStatus[];
+type CardWithSet = CardWithCollectionStatus & {
+  set: CardSet;
+};
+
+type BoosterPackProps = {
+  cards: CardWithSet[];
   onAddToCollection: (cardId: string) => void;
   onOpenAnother: () => void;
-}
+};
 
 const BoosterPack: React.FC<BoosterPackProps> = ({ 
   cards, 
@@ -79,61 +82,42 @@ const BoosterPack: React.FC<BoosterPackProps> = ({
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <div className="p-2 bg-white">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-gray-500">#{card.number}</span>
-                      <span className="text-xs font-medium text-gray-700 capitalize">{card.rarity}</span>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-medium">{card.name}</span>
+                      <span className="capitalize">{card.rarity}</span>
                     </div>
-                    <h3 className="font-medium text-sm truncate" title={card.name}>{card.name}</h3>
+                    <div className="text-xs text-gray-300 mt-1">
+                      {card.set?.name || 'Unknown Set'}
+                    </div>
                   </div>
-                  
-                  {!card.owned ? (
+                  {!card.owned && (
                     <button
                       onClick={() => onAddToCollection(card.id)}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white bg-pokemon-blue hover:bg-pokemon-blue/90"
-                      title="Add to collection"
+                      className="absolute top-2 right-2 bg-pokemon-blue text-white text-xs px-2 py-1 rounded hover:bg-pokemon-blue/90"
                     >
-                      <Plus size={16} />
+                      Collect
                     </button>
-                  ) : (
-                    <div className="absolute top-0 left-0 bg-green-500 text-white text-xs px-2 py-0.5 font-medium">
-                      Collected
-                    </div>
                   )}
                 </motion.div>
               ))}
             </div>
           </div>
-          
-          <div className="flex flex-wrap justify-center gap-4">
-            {revealedCards < cards.length && !revealAll && (
-              <Button 
+          <div className="text-center">
+            {revealedCards < cards.length ? (
+              <button
                 onClick={handleRevealNext}
-                variant="outline"
-                className="border-pokemon-blue text-pokemon-blue hover:bg-pokemon-blue hover:text-white"
+                className="bg-pokemon-blue text-white px-4 py-2 rounded hover:bg-pokemon-blue/90"
               >
                 Reveal Next Card
-              </Button>
-            )}
-            
-            {revealedCards < cards.length && !revealAll && (
-              <Button 
-                onClick={handleRevealAll}
-                variant="outline"
-                className="border-pokemon-red text-pokemon-red hover:bg-pokemon-red hover:text-white"
-              >
-                Reveal All Cards
-              </Button>
-            )}
-            
-            {(revealedCards === cards.length || revealAll) && (
-              <Button 
+              </button>
+            ) : (
+              <button
                 onClick={onOpenAnother}
-                className="bg-pokemon-red hover:bg-pokemon-red/90 text-white"
+                className="bg-pokemon-red text-white px-4 py-2 rounded hover:bg-pokemon-red/90"
               >
-                <Package size={16} className="mr-2" />
                 Open Another Pack
-              </Button>
+              </button>
             )}
           </div>
         </>
