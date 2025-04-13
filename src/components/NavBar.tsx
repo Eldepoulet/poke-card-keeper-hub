@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -8,7 +7,8 @@ import {
   User, 
   LogOut,
   Home,
-  BookOpen
+  BookOpen,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +50,10 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn, onLogin, onLogout }) => {
               <Link to="/sets" className="text-gray-700 hover:text-pokemon-red px-3 py-2 rounded-md flex items-center">
                 <BookOpen size={18} className="mr-1" />
                 <span>Card Sets</span>
+              </Link>
+              <Link to="/booster-game" className="text-gray-700 hover:text-pokemon-red px-3 py-2 rounded-md flex items-center">
+                <Package size={18} className="mr-1" />
+                <span>Booster Game</span>
               </Link>
             </div>
           </div>
@@ -113,6 +117,13 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn, onLogin, onLogout }) => {
               onClick={() => setIsOpen(false)}
             >
               Card Sets
+            </Link>
+            <Link 
+              to="/booster-game" 
+              className="text-gray-700 hover:text-pokemon-red block px-3 py-2 rounded-md font-medium"
+              onClick={() => setIsOpen(false)}
+            >
+              Booster Game
             </Link>
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200">
