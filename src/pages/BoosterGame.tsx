@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -66,19 +65,20 @@ const BoosterGame = () => {
     } catch (error) {
       console.error('Error in fetchGameCollectionCount:', error);
       
-      // Fallback method if REST API doesn't work
+      // Fallback method - try to calculate from database using rpc
       try {
-        // Use RPC function instead of direct table access
-        const { data, error } = await supabase
-          .rpc('get_game_collection_count', { user_id_param: userId });
+        // Use an RPC function that returns a number directly
+        const { data, error } = await supabase.rpc('get_game_collection_count_safe', {
+          user_id_param: userId
+        });
         
         if (error) {
-          console.error('Error fetching game collection count:', error);
+          console.error('RPC error:', error);
           return;
         }
         
-        if (data) {
-          setGameCollectionCount(data);
+        if (data !== null) {
+          setGameCollectionCount(Number(data));
         }
       } catch (fallbackError) {
         console.error('Fallback error:', fallbackError);
@@ -123,8 +123,9 @@ const BoosterGame = () => {
       if (collectionError || !gameCollection) {
         console.error('Error fetching game collection:', collectionError);
         // Try the RPC function as fallback
-        const { data: rpcData, error: rpcError } = await supabase
-          .rpc('get_user_game_collection', { user_id_param: username });
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_game_collection_safe', {
+          user_id_param: username
+        });
           
         if (rpcError) {
           console.error('RPC error:', rpcError);
@@ -139,8 +140,8 @@ const BoosterGame = () => {
           return;
         }
         
-        // Use the RPC result
-        const ownedCardIds = rpcData ? rpcData.map((item: any) => item.card_id) : [];
+        // Use the RPC result if it exists
+        const ownedCardIds = Array.isArray(rpcData) ? rpcData.map((item: any) => item.card_id) : [];
         
         // Transform raw cards to include ownership status
         const cardsWithStatus: CardWithCollectionStatus[] = randomCards.map(card => ({
@@ -183,13 +184,10 @@ const BoosterGame = () => {
 
       if (error) {
         // Fallback to RPC
-        const { error: rpcError } = await supabase.rpc(
-          'add_card_to_game_collection',
-          { 
-            user_id_param: username,
-            card_id_param: cardId
-          }
-        );
+        const { error: rpcError } = await supabase.rpc('add_card_to_game_collection_safe', { 
+          user_id_param: username,
+          card_id_param: cardId
+        });
 
         if (rpcError) {
           console.error('RPC error:', rpcError);
