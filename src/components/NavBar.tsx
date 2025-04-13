@@ -8,7 +8,8 @@ import {
   LogOut,
   Home,
   BookOpen,
-  Package
+  Package,
+  Library
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +51,10 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn, onLogin, onLogout }) => {
               <Link to="/sets" className="text-gray-700 hover:text-pokemon-red px-3 py-2 rounded-md flex items-center">
                 <BookOpen size={18} className="mr-1" />
                 <span>Card Sets</span>
+              </Link>
+              <Link to="/inventory" className="text-gray-700 hover:text-pokemon-red px-3 py-2 rounded-md flex items-center">
+                <Library size={18} className="mr-1" />
+                <span>Inventory</span>
               </Link>
               <Link to="/booster-game" className="text-gray-700 hover:text-pokemon-red px-3 py-2 rounded-md flex items-center">
                 <Package size={18} className="mr-1" />
@@ -117,6 +122,13 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn, onLogin, onLogout }) => {
               onClick={() => setIsOpen(false)}
             >
               Card Sets
+            </Link>
+            <Link 
+              to="/inventory" 
+              className="text-gray-700 hover:text-pokemon-red block px-3 py-2 rounded-md font-medium"
+              onClick={() => setIsOpen(false)}
+            >
+              Inventory
             </Link>
             <Link 
               to="/booster-game" 
