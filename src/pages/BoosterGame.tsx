@@ -68,17 +68,18 @@ const BoosterGame = () => {
       
       // Fallback method if REST API doesn't work
       try {
-        // Use raw SQL query with count to avoid TypeScript errors
-        const { count, error } = await supabase
-          .rpc('get_game_collection_count', { user_id_param: userId })
-          .single();
+        // Use RPC function instead of direct table access
+        const { data, error } = await supabase
+          .rpc('get_game_collection_count', { user_id_param: userId });
         
         if (error) {
           console.error('Error fetching game collection count:', error);
           return;
         }
         
-        setGameCollectionCount(count || 0);
+        if (data) {
+          setGameCollectionCount(data);
+        }
       } catch (fallbackError) {
         console.error('Fallback error:', fallbackError);
       }
@@ -114,6 +115,7 @@ const BoosterGame = () => {
         .limit(5);
 
       if (error) throw error;
+      if (!randomCards) throw new Error('No cards returned');
 
       // Check which cards are already in the game collection
       const { data: gameCollection, error: collectionError } = await getUserGameCollection(username);

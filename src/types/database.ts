@@ -23,7 +23,7 @@ export type GameCollection = {
 };
 
 // Create helper functions to handle game collection operations
-export async function getUserGameCollection(userId: string): Promise<{ data: GameCollection[] | null, error: any }> {
+export async function getUserGameCollection(userId: string): Promise<{ data: GameCollection[] | null; error: any }> {
   try {
     const response = await fetch(`https://owwtcjvkmwykcjqgdlsn.supabase.co/rest/v1/game_collections?user_id=eq.${userId}&select=*`, {
       headers: {
@@ -44,7 +44,7 @@ export async function getUserGameCollection(userId: string): Promise<{ data: Gam
   }
 }
 
-export async function getGameCollectionCount(userId: string): Promise<{ count: number, error: any }> {
+export async function getGameCollectionCount(userId: string): Promise<{ count: number; error: any }> {
   try {
     const response = await fetch(`https://owwtcjvkmwykcjqgdlsn.supabase.co/rest/v1/game_collections?user_id=eq.${userId}&select=count`, {
       headers: {
