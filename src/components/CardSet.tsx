@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,13 @@ const CardSet: React.FC<CardSetProps> = ({
 }) => {
   const collectionProgress = Math.round((collectedCards / total_cards) * 100);
   
+  // Determine the color class based on progress
+  const getProgressColorClass = () => {
+    if (collectionProgress === 100) return "bg-green-500";
+    if (collectionProgress > 50) return "bg-pokemon-blue";
+    return "bg-pokemon-red";
+  };
+  
   return (
     <div className="set-card">
       <div className="aspect-[2/1] relative overflow-hidden">
@@ -34,17 +40,12 @@ const CardSet: React.FC<CardSetProps> = ({
           <span>Released: {release_date}</span>
           <span>{collectedCards}/{total_cards} cards</span>
         </div>
-        <Progress 
-          value={collectionProgress} 
-          className="h-2 mb-4" 
-          indicatorClassName={
-            collectionProgress === 100 
-              ? "bg-green-500" 
-              : collectionProgress > 50 
-                ? "bg-pokemon-blue" 
-                : "bg-pokemon-red"
-          }
-        />
+        <div className="relative w-full h-2 mb-4 bg-gray-200 rounded-full overflow-hidden">
+          <div 
+            className={`absolute top-0 left-0 h-full ${getProgressColorClass()} transition-all duration-300`}
+            style={{ width: `${collectionProgress}%` }}
+          />
+        </div>
         <Link to={`/sets/${id}`}>
           <Button variant="outline" className="w-full border-pokemon-blue text-pokemon-blue hover:bg-pokemon-blue hover:text-white">
             View Set

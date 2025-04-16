@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -6,7 +5,6 @@ import PokemonCard from '@/components/PokemonCard';
 import AuthModal from '@/components/AuthModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { 
   Select, 
   SelectContent, 
@@ -191,6 +189,13 @@ const SetDetails = () => {
   const collectedCards = isLoggedIn ? cards.filter(card => card.owned).length : 0;
   const totalCards = cards.length;
   const collectionProgress = totalCards > 0 ? Math.round((collectedCards / totalCards) * 100) : 0;
+  
+  // Helper function to determine progress bar color
+  const getProgressColorClass = () => {
+    if (collectionProgress === 100) return "bg-green-500";
+    if (collectionProgress > 50) return "bg-pokemon-blue";
+    return "bg-pokemon-red";
+  };
 
   if (isLoading) {
     return (
@@ -253,17 +258,13 @@ const SetDetails = () => {
                     {collectionProgress}%
                   </span>
                 </div>
-                <Progress 
-                  value={collectionProgress} 
-                  className="h-2" 
-                  indicatorClassName={
-                    collectionProgress === 100 
-                      ? "bg-green-500" 
-                      : collectionProgress > 50 
-                        ? "bg-pokemon-blue" 
-                        : "bg-pokemon-red"
-                  }
-                />
+                {/* Custom progress bar implementation */}
+                <div className="relative w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`absolute top-0 left-0 h-full ${getProgressColorClass()} transition-all duration-300`}
+                    style={{ width: `${collectionProgress}%` }}
+                  />
+                </div>
               </div>
               <Button 
                 variant="outline" 
